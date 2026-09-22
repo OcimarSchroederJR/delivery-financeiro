@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  pagamentos-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pagamentos_db}
+      POSTGRES_USER: ${DB_USER:-pagamentos_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pagamentos_pass}
+    ports:
+      - "5451:5432"
+    volumes:
+      - pagamentos-db-data:/var/lib/postgresql/data
+
+  pagamentos:
+    build: .
+    ports:
+      - "${PORT:-8051}:8051"
+    environment:
+      PORT: ${PORT:-8051}
+      DB_HOST: pagamentos-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-pagamentos_db}
+      DB_USER: ${DB_USER:-pagamentos_user}
+      DB_PASSWORD: ${DB_PASSWORD:-pagamentos_pass}
+      IDENTIDADE_SERVICE_URL: ${IDENTIDADE_SERVICE_URL:-http://localhost:8011}
+      NOTIFICACOES_SERVICE_URL: ${NOTIFICACOES_SERVICE_URL:-http://localhost:8052}
+    depends_on:
+      - pagamentos-db
+
+volumes:
+  pagamentos-db-data:
