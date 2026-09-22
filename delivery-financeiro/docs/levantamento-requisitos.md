@@ -11,7 +11,7 @@
 
 | Versão | Data | Autores | Descrição |
 |---|---|---|---|
-| 01.00 | 22/09/2026 | Luiz Tenório, João Gabriel, Alana Brito | Versão inicial do levantamento de requisitos dos serviços de Pagamentos, Notificações e Avaliações |
+| 01.00 | 22/09/2026 | Luiz Tenório, João Gabriel, Alana Brito, Ocimar Schroeder | Versão inicial do levantamento de requisitos dos serviços de Pagamentos, Notificações e Avaliações |
 
 ## Equipe
 
@@ -20,6 +20,7 @@
 | Luiz Tenório |
 | João Gabriel |
 | Alana Brito |
+| Ocimar Schroeder |
 
 ---
 
