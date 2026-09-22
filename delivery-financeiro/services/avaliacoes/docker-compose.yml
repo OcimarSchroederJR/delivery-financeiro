@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  avaliacoes-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-avaliacoes_db}
+      POSTGRES_USER: ${DB_USER:-avaliacoes_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-avaliacoes_pass}
+    ports:
+      - "5453:5432"
+    volumes:
+      - avaliacoes-db-data:/var/lib/postgresql/data
+
+  avaliacoes:
+    build: .
+    ports:
+      - "${PORT:-8053}:8053"
+    environment:
+      PORT: ${PORT:-8053}
+      DB_HOST: avaliacoes-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-avaliacoes_db}
+      DB_USER: ${DB_USER:-avaliacoes_user}
+      DB_PASSWORD: ${DB_PASSWORD:-avaliacoes_pass}
+      IDENTIDADE_SERVICE_URL: ${IDENTIDADE_SERVICE_URL:-http://localhost:8011}
+      CHECKOUT_SERVICE_URL: ${CHECKOUT_SERVICE_URL:-http://localhost:8031}
+    depends_on:
+      - avaliacoes-db
+
+volumes:
+  avaliacoes-db-data:
