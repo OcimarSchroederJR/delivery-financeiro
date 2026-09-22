@@ -1,0 +1,92 @@
+version: "3.9"
+
+networks:
+  delivery-financeiro-net:
+    driver: bridge
+
+services:
+  pagamentos-db:
+    image: postgres:16-alpine
+    networks: [delivery-financeiro-net]
+    environment:
+      POSTGRES_DB: ${PAGAMENTOS_DB_NAME:-pagamentos_db}
+      POSTGRES_USER: ${PAGAMENTOS_DB_USER:-pagamentos_user}
+      POSTGRES_PASSWORD: ${PAGAMENTOS_DB_PASSWORD:-pagamentos_pass}
+    volumes:
+      - pagamentos-db-data:/var/lib/postgresql/data
+
+  pagamentos:
+    build: ./services/pagamentos
+    networks: [delivery-financeiro-net]
+    ports:
+      - "${PAGAMENTOS_PORT:-8051}:8051"
+    environment:
+      PORT: ${PAGAMENTOS_PORT:-8051}
+      DB_HOST: pagamentos-db
+      DB_PORT: 5432
+      DB_NAME: ${PAGAMENTOS_DB_NAME:-pagamentos_db}
+      DB_USER: ${PAGAMENTOS_DB_USER:-pagamentos_user}
+      DB_PASSWORD: ${PAGAMENTOS_DB_PASSWORD:-pagamentos_pass}
+      IDENTIDADE_SERVICE_URL: ${IDENTIDADE_SERVICE_URL:-http://localhost:8011}
+      NOTIFICACOES_SERVICE_URL: http://notificacoes:8052
+    depends_on:
+      - pagamentos-db
+
+  notificacoes-db:
+    image: postgres:16-alpine
+    networks: [delivery-financeiro-net]
+    environment:
+      POSTGRES_DB: ${NOTIFICACOES_DB_NAME:-notificacoes_db}
+      POSTGRES_USER: ${NOTIFICACOES_DB_USER:-notificacoes_user}
+      POSTGRES_PASSWORD: ${NOTIFICACOES_DB_PASSWORD:-notificacoes_pass}
+    volumes:
+      - notificacoes-db-data:/var/lib/postgresql/data
+
+  notificacoes:
+    build: ./services/notificacoes
+    networks: [delivery-financeiro-net]
+    ports:
+      - "${NOTIFICACOES_PORT:-8052}:8052"
+    environment:
+      PORT: ${NOTIFICACOES_PORT:-8052}
+      DB_HOST: notificacoes-db
+      DB_PORT: 5432
+      DB_NAME: ${NOTIFICACOES_DB_NAME:-notificacoes_db}
+      DB_USER: ${NOTIFICACOES_DB_USER:-notificacoes_user}
+      DB_PASSWORD: ${NOTIFICACOES_DB_PASSWORD:-notificacoes_pass}
+      IDENTIDADE_SERVICE_URL: ${IDENTIDADE_SERVICE_URL:-http://localhost:8011}
+      CHECKOUT_SERVICE_URL: ${CHECKOUT_SERVICE_URL:-http://localhost:8031}
+    depends_on:
+      - notificacoes-db
+
+  avaliacoes-db:
+    image: postgres:16-alpine
+    networks: [delivery-financeiro-net]
+    environment:
+      POSTGRES_DB: ${AVALIACOES_DB_NAME:-avaliacoes_db}
+      POSTGRES_USER: ${AVALIACOES_DB_USER:-avaliacoes_user}
+      POSTGRES_PASSWORD: ${AVALIACOES_DB_PASSWORD:-avaliacoes_pass}
+    volumes:
+      - avaliacoes-db-data:/var/lib/postgresql/data
+
+  avaliacoes:
+    build: ./services/avaliacoes
+    networks: [delivery-financeiro-net]
+    ports:
+      - "${AVALIACOES_PORT:-8053}:8053"
+    environment:
+      PORT: ${AVALIACOES_PORT:-8053}
+      DB_HOST: avaliacoes-db
+      DB_PORT: 5432
+      DB_NAME: ${AVALIACOES_DB_NAME:-avaliacoes_db}
+      DB_USER: ${AVALIACOES_DB_USER:-avaliacoes_user}
+      DB_PASSWORD: ${AVALIACOES_DB_PASSWORD:-avaliacoes_pass}
+      IDENTIDADE_SERVICE_URL: ${IDENTIDADE_SERVICE_URL:-http://localhost:8011}
+      CHECKOUT_SERVICE_URL: ${CHECKOUT_SERVICE_URL:-http://localhost:8031}
+    depends_on:
+      - avaliacoes-db
+
+volumes:
+  pagamentos-db-data:
+  notificacoes-db-data:
+  avaliacoes-db-data:
