@@ -4,8 +4,10 @@ requires-python = "==3.12.*"
 
 [manifest]
 members = [
+    "avaliacoes",
     "delivery-financeiro",
     "mocks-equipes",
+    "notificacoes",
     "pagamentos",
     "plataforma",
 ]
@@ -34,6 +36,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/2d/15/475b169da189c38ce4ba4ebec0cd4ff859f3e0dc17e8abc14552f1b7f456/aiormq-7.2.2.tar.gz", hash = "sha256:1434fba7efc56523684506d3118008aae88ab38383d92da3f9f37d9859256784", size = 77592, upload-time = "2026-10-10T10:29:05.82Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/71/937ac2016ff02f5a72745318e83ff9d83684a4b2fb8f45e54210b9ffa233/aiormq-7.2.2-py3-none-any.whl", hash = "sha256:977622e8d3ba8d7ced7fd3a74217d24e359975edd920d4c102f9ec183fbc40a4", size = 39769, upload-time = "2026-10-10T10:29:04.198Z" },
+]
+
+[[package]]
+name = "aiosmtplib"
+version = "5.1.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/5c/9cabc5db6d607616e81ba6d8f1f231cd5a75955807a308c1090a59072d6d/aiosmtplib-5.1.3.tar.gz", hash = "sha256:ac2b418d3260ba62d9cfd0fe7359726e9dc009a4e8e8d9909fdfae332f522a7c", size = 77010, upload-time = "2026-09-08T02:11:20.532Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/0a/b56ab8163d54960337fdca475d3dfd56c8badf6172e79cf2ad00d5335dc1/aiosmtplib-5.1.3-py3-none-any.whl", hash = "sha256:f7d76ce3d4995a65a178c1f11e1bd1607706b921d00cb768e7a2c7f7ef5517a8", size = 30116, upload-time = "2026-09-08T02:11:19.352Z" },
 ]
 
 [[package]]
@@ -152,6 +163,41 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/84/f5/5a3796088f0c3f7d22aaf7c48536f40b27e44b7c9603d4d7abfeca2ed97e/asyncpg-0.32.0-cp312-cp312-win32.whl", hash = "sha256:fbe1f8c788fb5df18ea8a5432dfa2473fd8f7f088025fb83d089a7c7b37e37b0", size = 551810, upload-time = "2026-10-06T20:31:03.248Z" },
     { url = "https://files.pythonhosted.org/packages/af/42/f4d333a3f67b0e7cf58ea855f9d5d9104ce38c21f2a2f22bf7dce524428c/asyncpg-0.32.0-cp312-cp312-win_amd64.whl", hash = "sha256:cd7157a86817730c3239bc687abf8186a471525d695e225c187b9a523a808a98", size = 626763, upload-time = "2026-10-06T20:31:04.927Z" },
     { url = "https://files.pythonhosted.org/packages/a8/82/9d82e16e1d0b4e2a639a2db649d4b444b8a479cd52553a9c36ba0d6320a8/asyncpg-0.32.0-cp312-cp312-win_arm64.whl", hash = "sha256:9509e21fc526f1fc27cf80ad9f9b8dde3f3e21935d46be66d649635321d3407c", size = 577288, upload-time = "2026-10-06T20:31:06.776Z" },
+]
+
+[[package]]
+name = "avaliacoes"
+version = "0.1.0"
+source = { editable = "services/avaliacoes" }
+dependencies = [
+    { name = "alembic" },
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "faststream", extra = ["rabbit"] },
+    { name = "httpx" },
+    { name = "plataforma" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "structlog" },
+    { name = "tenacity" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.20,<2" },
+    { name = "asyncpg", specifier = ">=0.32,<1" },
+    { name = "fastapi", specifier = ">=0.143,<1" },
+    { name = "faststream", extras = ["rabbit"], specifier = ">=0.7.7,<0.8" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "plataforma", editable = "libs/plataforma" },
+    { name = "pydantic", specifier = ">=2.14,<3" },
+    { name = "pydantic-settings", specifier = ">=2.16,<3" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40,<2.1" },
+    { name = "structlog", specifier = ">=26.1,<27" },
+    { name = "tenacity", specifier = ">=9.2,<10" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54,<1" },
 ]
 
 [[package]]
@@ -333,7 +379,9 @@ name = "delivery-financeiro"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "avaliacoes" },
     { name = "mocks-equipes" },
+    { name = "notificacoes" },
     { name = "pagamentos" },
     { name = "plataforma" },
 ]
@@ -354,7 +402,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "avaliacoes", editable = "services/avaliacoes" },
     { name = "mocks-equipes", editable = "mocks" },
+    { name = "notificacoes", editable = "services/notificacoes" },
     { name = "pagamentos", editable = "services/pagamentos" },
     { name = "plataforma", editable = "libs/plataforma" },
 ]
@@ -383,6 +433,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dnspython"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/4a/50822184bd67cc6493f0fb6a880749158fcd31ab3fa07409acfd91f9fc85/dnspython-2.9.0.tar.gz", hash = "sha256:b44dc6b18f07a8b1c56676a19fbfdb5209415b046a9cece286baafa87ff3f7f1", size = 423560, upload-time = "2026-10-09T00:07:24.352Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/02/cdcc9b7c051786a103c3b09e1003a82fa0c66bcb91ffbdabcfbf7b4163b9/dnspython-2.9.0-py3-none-any.whl", hash = "sha256:9a4aedb833c3c1b49214d04d44d3032ab7a9135f7c1d29a549b4ff78fd82fda9", size = 354822, upload-time = "2026-10-09T00:07:22.622Z" },
+]
+
+[[package]]
 name = "docker"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -394,6 +453,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/88/7f/731ff914b0255d3d065f45fd4e626d4b8c95dbcbaada049f337a6ac16410/docker-7.2.0.tar.gz", hash = "sha256:cebb93773d334f778e023a7ee352a8d6e13ab1bd3b863a4d4a59dec897df43ac", size = 118731, upload-time = "2026-07-09T14:53:46.39Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/75/23/529140fe1aab80fc6992f93a706deec709140a6397439139a054e1515c45/docker-7.2.0-py3-none-any.whl", hash = "sha256:a3f45fdeb9165e2d25d9a1d02ddf3bc70fb572cf5ebbf9b58558c22caf29b71f", size = 148775, upload-time = "2026-07-09T14:53:45.224Z" },
+]
+
+[[package]]
+name = "email-validator"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dnspython" },
+    { name = "idna" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz", hash = "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426", size = 51238, upload-time = "2025-08-26T13:09:06.831Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/15/545e2b6cf2e3be84bc1ed85613edd75b8aea69807a71c26f4ca6a9258e82/email_validator-2.3.0-py3-none-any.whl", hash = "sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4", size = 35604, upload-time = "2025-08-26T13:09:05.858Z" },
 ]
 
 [[package]]
@@ -848,6 +920,47 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/105de02c1322cfada6d9710d9146ef8026419d433c9d08359a2d35805811/nodeenv-1.11.0.tar.gz", hash = "sha256:3ce8fe5b71d16e8af7039ca65257354100bc772965d6bc549070649e53b1b146", size = 99301, upload-time = "2026-09-26T11:29:21.367Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/c8/12811c9b48fde162bb72b6f2e78fada9a247a09d7bb5be2050a5d099c77b/nodeenv-1.11.0-py2.py3-none-any.whl", hash = "sha256:edaa16e6c14d7cf395d75d4bbd5a26390f4dc06501a33b4e76282b02cc688a25", size = 34277, upload-time = "2026-09-26T11:29:19.933Z" },
+]
+
+[[package]]
+name = "notificacoes"
+version = "0.1.0"
+source = { editable = "services/notificacoes" }
+dependencies = [
+    { name = "aiosmtplib" },
+    { name = "alembic" },
+    { name = "asyncpg" },
+    { name = "cryptography" },
+    { name = "email-validator" },
+    { name = "fastapi" },
+    { name = "faststream", extra = ["rabbit"] },
+    { name = "httpx" },
+    { name = "plataforma" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "structlog" },
+    { name = "tenacity" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiosmtplib", specifier = ">=5.1,<6" },
+    { name = "alembic", specifier = ">=1.20,<2" },
+    { name = "asyncpg", specifier = ">=0.32,<1" },
+    { name = "cryptography", specifier = ">=50" },
+    { name = "email-validator", specifier = ">=2.3,<3" },
+    { name = "fastapi", specifier = ">=0.143,<1" },
+    { name = "faststream", extras = ["rabbit"], specifier = ">=0.7.7,<0.8" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "plataforma", editable = "libs/plataforma" },
+    { name = "pydantic", specifier = ">=2.14,<3" },
+    { name = "pydantic-settings", specifier = ">=2.16,<3" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40,<2.1" },
+    { name = "structlog", specifier = ">=26.1,<27" },
+    { name = "tenacity", specifier = ">=9.2,<10" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54,<1" },
 ]
 
 [[package]]

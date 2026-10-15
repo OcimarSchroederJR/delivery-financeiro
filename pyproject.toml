@@ -3,7 +3,7 @@ name = "delivery-financeiro"
 version = "0.1.0"
 description = "Equipe 5 (Financeiro e Pós): Pagamentos, Notificações e Avaliações."
 requires-python = ">=3.12,<3.13"
-dependencies = ["plataforma", "pagamentos", "mocks-equipes"]
+dependencies = ["plataforma", "pagamentos", "notificacoes", "avaliacoes", "mocks-equipes"]
 
 [dependency-groups]
 dev = [
@@ -24,11 +24,13 @@ package = false
 required-version = ">=0.11.14,<0.12"
 
 [tool.uv.workspace]
-members = ["libs/plataforma", "services/pagamentos", "mocks"]
+members = ["libs/plataforma", "services/pagamentos", "services/notificacoes", "services/avaliacoes", "mocks"]
 
 [tool.uv.sources]
 plataforma = { workspace = true }
 pagamentos = { workspace = true }
+notificacoes = { workspace = true }
+avaliacoes = { workspace = true }
 mocks-equipes = { workspace = true }
 
 [tool.ruff]
