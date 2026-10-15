@@ -1,29 +1,72 @@
-# delivery-financeiro
+# delivery-financeiro — Equipe 5 (Financeiro e Pós)
 
-Monorepo do grupo **Financeiro e Pós** (Equipe 3, Sessão 3) na disciplina de Integração de Sistemas — Plataforma de Delivery (arquitetura de 15 microsserviços distribuídos entre 5 equipes).
+Serviços de **Pagamentos**, **Notificações** e **Avaliações** da Plataforma de Delivery
+(Integração de Sistemas — UPE Garanhuns). A especificação completa está em
+[`docs/arquitetura/especificacao.md`](docs/arquitetura/especificacao.md).
 
-Esta equipe é responsável por dois dos três serviços do grupo: **Pagamentos** e **Notificações**. O serviço de **Avaliações** está incluído no scaffold por completude da divisão de domínios, mas está fora do escopo desta equipe.
+> **Estado:** Fase 1 (Fundação) concluída — biblioteca `libs/plataforma`, mocks das outras
+> equipes, esqueleto dos 3 serviços, compose e CI. As regras de negócio chegam nas Fases 2 a 4.
 
-> O conteúdo do projeto está em [`delivery-financeiro/`](delivery-financeiro/). No momento o repositório contém apenas o **scaffold** dos serviços (projetos NestJS prontos para rodar, Docker, testes de health-check e Swagger vazio) — a lógica de negócio de cada endpoint será implementada ao longo da disciplina.
+## Equipe
+
+Luiz Tenório · João Gabriel · Alana Brito · Ocimar Schroeder
 
 ## Serviços
 
-| Serviço | Porta | Descrição |
-|---|---|---|
-| [Pagamentos](delivery-financeiro/services/pagamentos) | 8051 | Processamento de transações financeiras de pedidos |
-| [Notificações](delivery-financeiro/services/notificacoes) | 8052 | Envio de e-mails e disparo de webhooks de alerta |
-| [Avaliações](delivery-financeiro/services/avaliacoes) | 8053 | Coleta de notas, comentários e gestão de disputas |
+| Serviço | Camada | Porta | Swagger |
+|---|---|---|---|
+| Pagamentos | Entidade | 8013 | http://localhost:8013/docs |
+| Notificações | Utilitário | 8014 | http://localhost:8014/docs |
+| Avaliações | Entidade + Tarefa | 8015 | http://localhost:8015/docs |
 
-## Como rodar tudo com um único comando
+Contratos gerados: [`docs/openapi/`](docs/openapi/) e [`docs/asyncapi/`](docs/asyncapi/).
+
+## Como rodar
+
+Pré-requisito: Docker.
 
 ```bash
-cd delivery-financeiro
-cp .env.example .env
-docker compose up --build
+cp .env.example .env                              # opcional
+docker compose --profile mocks up -d --build      # serviços + infraestrutura + mocks
+docker compose --profile mocks down -v            # derruba tudo
 ```
 
-Veja o [README do monorepo](delivery-financeiro/README.md) para detalhes de arquitetura, regras de integração e stack utilizada.
+| Ferramenta | URL |
+|---|---|
+| RabbitMQ (guest/guest) | http://localhost:15672 |
+| Mailpit | http://localhost:8025 |
+| Jaeger | http://localhost:16686 |
+| Mock Identidade (Eq. 1) | http://localhost:8001/docs |
+| Mock Pedidos (Eq. 3) | http://localhost:8008/docs |
+| Mock Logística (Eq. 4) | http://localhost:8010/docs |
 
-## Stack
+Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: application/json' -d '{"sub":"cliente-1","papel":"cliente"}'`.
 
-NestJS + TypeScript · TypeORM + PostgreSQL (um banco por serviço) · Swagger/OpenAPI · Jest + Supertest · Docker / Docker Compose
+## Desenvolvimento
+
+Pré-requisitos: [uv](https://docs.astral.sh/uv/) 0.11 e Docker (para os testes de integração).
+
+```bash
+uv python install 3.12
+uv sync
+uv run pre-commit install
+uv run pytest                                 # todos os testes
+uv run pytest -m "not integracao"             # sem Docker
+uv run pytest services/pagamentos/tests --cov=pagamentos
+uv run python -m pagamentos.contratos         # regenera docs/openapi e docs/asyncapi
+```
+
+## Estrutura
+
+```
+libs/plataforma/   código técnico compartilhado (erros, logs, auth, outbox, inbox, HTTP...)
+services/<s>/      um serviço: src/<s>/{dominio,aplicacao,adaptadores}, alembic/, tests/
+mocks/             stubs das Equipes 1, 3 e 4 (profile "mocks")
+docs/              especificação, levantamento de requisitos e contratos
+```
+
+## Contribuição
+
+- Uma branch por tarefa a partir de `dev`: `feat/...`, `fix/...`, `refactor/...`, `chore/...`.
+- Commits em português: `tipo(escopo): descrição` (ex.: `feat(pagamentos): adiciona estorno parcial`).
+- PR para `dev`; o CI precisa passar (`ci-ok`).
