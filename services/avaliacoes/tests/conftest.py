@@ -8,9 +8,11 @@ from pydantic import SecretStr
 
 from avaliacoes.api import criar_app
 from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
+from avaliacoes.aplicacao.saga import PoliticaDeRetentativa, SagaEstorno
 from avaliacoes.config import Config
 from avaliacoes.testes.fakes import (
     BancoEmMemoria,
+    EmissorTokenFake,
     PagamentosFake,
     PedidosFake,
     RelogioFake,
@@ -82,3 +84,12 @@ def pedidos() -> PedidosFake:
 @pytest.fixture
 def pagamentos() -> PagamentosFake:
     return PagamentosFake()
+
+
+@pytest.fixture
+def saga(
+    uow: FabricaUnidadeDeTrabalho, pagamentos: PagamentosFake, relogio: RelogioFake
+) -> SagaEstorno:
+    return SagaEstorno(
+        uow, pagamentos, EmissorTokenFake(), politica=PoliticaDeRetentativa(), relogio=relogio
+    )

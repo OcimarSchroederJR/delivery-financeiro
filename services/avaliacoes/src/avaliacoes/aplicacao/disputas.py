@@ -1,17 +1,24 @@
-"""Casos de uso de disputas: abrir e consultar."""
+"""Casos de uso de disputas: abrir, consultar e decidir (inicia a saga)."""
 
 import uuid
 from dataclasses import dataclass
 
-from avaliacoes.aplicacao.eventos import DISPUTA_ABERTA, dados_disputa_aberta
+from avaliacoes.aplicacao.eventos import (
+    DISPUTA_ABERTA,
+    DISPUTA_RESOLVIDA,
+    dados_disputa_aberta,
+    dados_disputa_resolvida,
+)
 from avaliacoes.aplicacao.portas import (
     FabricaUnidadeDeTrabalho,
     PortaPagamentos,
     Relogio,
     Solicitante,
 )
+from avaliacoes.aplicacao.saga import SagaEstorno
 from avaliacoes.dominio.disputa import (
     STATUS_PAGAMENTO_CONTESTAVEIS,
+    Decisao,
     Disputa,
     MotivoDisputa,
     StatusDisputa,
@@ -35,6 +42,13 @@ class ComandoAbrirDisputa:
     motivo: MotivoDisputa
     valor_solicitado_centavos: int
     descricao: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ComandoDecidirDisputa:
+    decisao: Decisao
+    valor_aprovado_centavos: int | None = None
+    parecer: str | None = None
 
 
 class AbrirDisputa:
@@ -107,3 +121,50 @@ class ConsultarDisputas:
                 deslocamento=deslocamento,
                 limite=limite,
             )
+
+
+class DecidirDisputa:
+    """``PATCH /v1/disputas/{id}`` (admin). Procedente dispara a saga de estorno."""
+
+    def __init__(
+        self,
+        uow: FabricaUnidadeDeTrabalho,
+        saga: SagaEstorno,
+        *,
+        relogio: Relogio = agora_utc,
+    ) -> None:
+        self._uow = uow
+        self._saga = saga
+        self._relogio = relogio
+
+    async def executar(self, disputa_id: uuid.UUID, comando: ComandoDecidirDisputa) -> Disputa:
+        agora = self._relogio()
+        async with self._uow() as uow:
+            disputa = await uow.disputas.obter(disputa_id, para_atualizar=True)
+            if disputa is None:
+                raise DisputaNaoEncontrada()
+            if comando.decisao is Decisao.IMPROCEDENTE:
+                disputa.julgar_improcedente(
+                    parecer=comando.parecer,
+                    valor_aprovado_centavos=comando.valor_aprovado_centavos,
+                    agora=agora,
+                )
+                await uow.disputas.salvar(disputa)
+                uow.registrar_evento(DISPUTA_RESOLVIDA, dados_disputa_resolvida(disputa))
+                await uow.commit()
+                _log.info("disputa_improcedente", disputa_id=str(disputa.id))
+                return disputa
+            disputa.aprovar(
+                valor_aprovado_centavos=comando.valor_aprovado_centavos,
+                parecer=comando.parecer,
+                agora=agora,
+                primeira_tentativa_em=agora + self._saga.politica.atraso_inicial,
+            )
+            await uow.disputas.salvar(disputa)
+            await uow.commit()
+        _log.info(
+            "disputa_procedente",
+            disputa_id=str(disputa.id),
+            valor_aprovado_centavos=disputa.valor_aprovado_centavos,
+        )
+        return await self._saga.tentar(disputa_id)
