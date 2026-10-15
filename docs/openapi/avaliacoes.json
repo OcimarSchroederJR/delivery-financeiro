@@ -148,6 +148,206 @@
         "title": "CorpoErro",
         "type": "object"
       },
+      "Decisao": {
+        "enum": [
+          "procedente",
+          "improcedente"
+        ],
+        "title": "Decisao",
+        "type": "string"
+      },
+      "DecisaoEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "parecer": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parecer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Decisao"
+          },
+          "valor_aprovado_centavos": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Aprovado Centavos"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DecisaoEntrada",
+        "type": "object"
+      },
+      "DisputaEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "descricao": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "motivo": {
+            "$ref": "#/components/schemas/MotivoDisputa"
+          },
+          "pedido_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "valor_solicitado_centavos": {
+            "exclusiveMinimum": 0.0,
+            "title": "Valor Solicitado Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pedido_id",
+          "motivo",
+          "valor_solicitado_centavos"
+        ],
+        "title": "DisputaEntrada",
+        "type": "object"
+      },
+      "DisputaSaida": {
+        "properties": {
+          "atualizado_em": {
+            "title": "Atualizado Em",
+            "type": "string"
+          },
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "estorno_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estorno Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "$ref": "#/components/schemas/MotivoDisputa"
+          },
+          "motivo_falha_estorno": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Falha Estorno"
+          },
+          "pagamento_id": {
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "parecer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parecer"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusDisputa"
+          },
+          "tentativas_estorno": {
+            "title": "Tentativas Estorno",
+            "type": "integer"
+          },
+          "valor_aprovado_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Aprovado Centavos"
+          },
+          "valor_solicitado_centavos": {
+            "title": "Valor Solicitado Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "pedido_id",
+          "pagamento_id",
+          "cliente_id",
+          "motivo",
+          "descricao",
+          "valor_solicitado_centavos",
+          "valor_aprovado_centavos",
+          "status",
+          "parecer",
+          "estorno_id",
+          "tentativas_estorno",
+          "motivo_falha_estorno",
+          "criado_em",
+          "atualizado_em"
+        ],
+        "title": "DisputaSaida",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -160,6 +360,16 @@
         },
         "title": "HTTPValidationError",
         "type": "object"
+      },
+      "MotivoDisputa": {
+        "enum": [
+          "item_faltando",
+          "pedido_errado",
+          "nao_entregue",
+          "qualidade"
+        ],
+        "title": "MotivoDisputa",
+        "type": "string"
       },
       "Pagina_AvaliacaoSaida_": {
         "properties": {
@@ -190,6 +400,37 @@
           "total"
         ],
         "title": "Pagina[AvaliacaoSaida]",
+        "type": "object"
+      },
+      "Pagina_DisputaSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/DisputaSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[DisputaSaida]",
         "type": "object"
       },
       "ResumoAvaliacoesSaida": {
@@ -233,6 +474,17 @@
         ],
         "title": "ResumoAvaliacoesSaida",
         "type": "object"
+      },
+      "StatusDisputa": {
+        "enum": [
+          "aberta",
+          "estorno_pendente",
+          "resolvida",
+          "improcedente",
+          "estorno_falhou"
+        ],
+        "title": "StatusDisputa",
+        "type": "string"
       },
       "ValidationError": {
         "properties": {
@@ -610,6 +862,375 @@
         "summary": "Detalha uma avaliação",
         "tags": [
           "avaliacoes"
+        ]
+      }
+    },
+    "/v1/disputas": {
+      "get": {
+        "operationId": "listar_v1_disputas_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StatusDisputa"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_DisputaSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista disputas (o cliente vê só as suas; o admin vê todas)",
+        "tags": [
+          "disputas"
+        ]
+      },
+      "post": {
+        "operationId": "abrir_v1_disputas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputaEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Abre uma disputa sobre um pedido pago",
+        "tags": [
+          "disputas"
+        ]
+      }
+    },
+    "/v1/disputas/{disputa_id}": {
+      "get": {
+        "operationId": "obter_v1_disputas__disputa_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "disputa_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Disputa Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detalha uma disputa",
+        "tags": [
+          "disputas"
+        ]
+      },
+      "patch": {
+        "operationId": "decidir_v1_disputas__disputa_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "disputa_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Disputa Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisaoEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputaSaida"
+                }
+              }
+            },
+            "description": "Procedente, com estorno pendente (Pagamentos indisponível); o worker conclui depois."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide a disputa (admin): procedente dispara o estorno; improcedente encerra",
+        "tags": [
+          "disputas"
         ]
       }
     },

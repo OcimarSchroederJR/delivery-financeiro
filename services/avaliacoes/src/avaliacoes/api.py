@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
-from avaliacoes.adaptadores.http import rotas_avaliacoes
+from avaliacoes.adaptadores.http import rotas_avaliacoes, rotas_disputas
 from avaliacoes.composicao import Dependencias, dependencias_reais
 from avaliacoes.config import Config
 from plataforma.api.app import criar_app_base
@@ -66,6 +66,7 @@ def criar_app(
         ciclo_de_vida=ciclo_de_vida,
     )
     app.include_router(rotas_avaliacoes.router)
+    app.include_router(rotas_disputas.router)
     return app
 
 
