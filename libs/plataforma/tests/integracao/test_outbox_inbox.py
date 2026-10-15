@@ -159,3 +159,23 @@ async def test_inbox_desfeita_com_rollback_do_efeito(
         await consumir_e_falhar()
     async with fabrica() as sessao, sessao.begin():
         assert await registrar_na_inbox(sessao, MensagemProcessada, envelope) is True
+
+
+async def test_publicacao_travada_expira_e_mantem_pendente(
+    fabrica: async_sessionmaker[AsyncSession],
+) -> None:
+    await _gravar(fabrica, "pagamento.aprovado")
+
+    class PublicadorTravado(PublicadorFake):
+        async def publicar(self, envelope: EnvelopeEvento) -> None:
+            await asyncio.Event().wait()
+
+    relay = RelayOutbox(fabrica, MensagemOutbox, PublicadorTravado(), timeout_publicacao=0.1)
+    assert await asyncio.wait_for(relay.publicar_pendentes(), timeout=5) == 0
+    async with fabrica() as sessao:
+        registro = await sessao.scalar(select(MensagemOutbox))
+    assert registro is not None
+    assert registro.publicado_em is None
+    assert registro.tentativas == 1
+    assert registro.ultimo_erro is not None
+    assert registro.ultimo_erro.startswith("TimeoutError")

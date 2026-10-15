@@ -63,6 +63,8 @@ class RelayOutbox[M: OutboxMixin]:
     """Publica eventos pendentes em ordem, com ``FOR UPDATE SKIP LOCKED``.
 
     Seguro com várias réplicas: cada lote fica travado pela transação que o leu.
+    Cada publicação tem ``timeout_publicacao`` segundos: um broker travado não
+    prende a transação nem impede o encerramento do worker.
     Se a publicação falha (broker fora), o evento continua pendente, com
     ``tentativas`` incrementado, e o lote é interrompido para preservar a ordem.
     """
@@ -74,11 +76,13 @@ class RelayOutbox[M: OutboxMixin]:
         publicador: Publicador,
         *,
         tamanho_lote: int = 100,
+        timeout_publicacao: float = 5.0,
     ) -> None:
         self._fabrica = fabrica_sessoes
         self._modelo = modelo
         self._publicador = publicador
         self._tamanho_lote = tamanho_lote
+        self._timeout_publicacao = timeout_publicacao
 
     async def publicar_pendentes(self) -> int:
         """Processa um lote. Retorna quantos eventos foram publicados."""
@@ -96,7 +100,9 @@ class RelayOutbox[M: OutboxMixin]:
                 envelope = EnvelopeEvento.model_validate(registro.envelope)
                 with correlation_id_em(envelope.correlation_id):
                     try:
-                        await self._publicador.publicar(envelope)
+                        await asyncio.wait_for(
+                            self._publicador.publicar(envelope), timeout=self._timeout_publicacao
+                        )
                     except Exception as erro:
                         registro.tentativas += 1
                         registro.ultimo_erro = f"{type(erro).__name__}: {erro}"[:500]
