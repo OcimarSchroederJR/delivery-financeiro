@@ -50,7 +50,8 @@ async def test_timeout_espera_o_atraso_configurado() -> None:
         await GatewaySimulado(atraso_timeout=0.05).autorizar(
             metodo=MetodoPagamento.CARTAO_CREDITO, valor_centavos=1, cartao=_cartao("0119")
         )
-    assert time.perf_counter() - inicio >= 0.05
+    # Tolerância para a granularidade do relógio do laço de eventos (cerca de 15 ms no Windows).
+    assert time.perf_counter() - inicio >= 0.04
 
 
 async def test_cartao_ausente_e_erro_de_programacao() -> None:
