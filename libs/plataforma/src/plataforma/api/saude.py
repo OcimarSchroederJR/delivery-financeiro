@@ -57,7 +57,10 @@ def criar_router_saude(
         if all(valor == "ok" for valor in resultados.values()):
             return JSONResponse({"status": "ok", "verificacoes": resultados})
         return resposta_erro(
-            503, "Serviço não está pronto.", "SERVICO_NAO_PRONTO", verificacoes=resultados
+            503,
+            "Serviço não está pronto.",
+            "SERVICO_NAO_PRONTO",
+            extras={"verificacoes": resultados},
         )
 
     return router

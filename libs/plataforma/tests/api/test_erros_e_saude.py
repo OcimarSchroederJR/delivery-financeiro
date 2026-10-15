@@ -43,6 +43,14 @@ def _app(verificacao: Verificacao = _ok) -> FastAPI:
             "Pagamento recusado.", codigo="PAGAMENTO_RECUSADO", detalhes={"pagamento_id": "p1"}
         )
 
+    @app.get("/v1/conflito-com-status")
+    async def conflito_com_status() -> None:
+        raise ErroConflito(
+            "Pagamento recusado.",
+            codigo="PAGAMENTO_RECUSADO",
+            detalhes={"status": "recusado", "headers": "x", "mensagem": "ignorada"},
+        )
+
     @app.get("/v1/quebra")
     async def quebra() -> None:
         raise RuntimeError("detalhe interno secreto")
@@ -104,6 +112,18 @@ async def test_correlation_id_recebido_e_ecoado_no_header_e_no_erro(
 async def test_correlation_id_malicioso_e_substituido(cliente: httpx.AsyncClient) -> None:
     resposta = await cliente.get("/saude/vivo", headers={HEADER_CORRELATION_ID: "x" * 500})
     assert resposta.headers[HEADER_CORRELATION_ID] != "x" * 500
+
+
+async def test_detalhes_com_chaves_reservadas_nao_quebram_a_resposta(
+    cliente: httpx.AsyncClient,
+) -> None:
+    resposta = await cliente.get("/v1/conflito-com-status")
+    assert resposta.status_code == 409
+    corpo = resposta.json()
+    assert corpo["status"] == "recusado"
+    assert corpo["headers"] == "x"
+    assert corpo["mensagem"] == "Pagamento recusado."
+    assert corpo["codigo"] == "PAGAMENTO_RECUSADO"
 
 
 async def test_erro_de_aplicacao_no_formato_padrao(cliente: httpx.AsyncClient) -> None:

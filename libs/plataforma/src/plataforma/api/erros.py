@@ -5,6 +5,7 @@ mais campos extras de ``ErroAplicacao.detalhes``. 500 nunca expõe stack trace e
 422 de validação nunca ecoa o valor recebido (pode ser número de cartão).
 """
 
+from collections.abc import Mapping
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -44,9 +45,12 @@ class CorpoErro(BaseModel):
     correlation_id: str | None = None
 
 
-def corpo_erro(mensagem: str, codigo: str, **extras: Any) -> dict[str, Any]:
+def corpo_erro(
+    mensagem: str, codigo: str, *, extras: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Corpo padrão de erro. Campos de ``extras`` nunca sobrescrevem os fixos."""
     return {
-        **extras,
+        **(extras or {}),
         "erro": True,
         "mensagem": mensagem,
         "codigo": codigo,
@@ -60,14 +64,14 @@ def resposta_erro(
     codigo: str,
     *,
     headers: dict[str, str] | None = None,
-    **extras: Any,
+    extras: Mapping[str, Any] | None = None,
 ) -> JSONResponse:
     cabecalhos = dict(headers or {})
     correlation_id = obter_correlation_id()
     if correlation_id is not None:
         cabecalhos[HEADER_CORRELATION_ID] = correlation_id
     return JSONResponse(
-        corpo_erro(mensagem, codigo, **extras), status_code=status, headers=cabecalhos
+        corpo_erro(mensagem, codigo, extras=extras), status_code=status, headers=cabecalhos
     )
 
 
@@ -81,7 +85,7 @@ async def _tratar_erro_aplicacao(_requisicao: Request, erro: Exception) -> Respo
         raise erro
     nivel = _log.warning if erro.status_http >= 500 else _log.info
     nivel("erro_tratado", codigo=erro.codigo, status=erro.status_http)
-    return resposta_erro(erro.status_http, erro.mensagem, erro.codigo, **erro.detalhes)
+    return resposta_erro(erro.status_http, erro.mensagem, erro.codigo, extras=erro.detalhes)
 
 
 async def _tratar_http(_requisicao: Request, erro: Exception) -> Response:
@@ -103,7 +107,7 @@ async def _tratar_validacao(_requisicao: Request, erro: Exception) -> Response:
         for item in erro.errors()
     ]
     return resposta_erro(
-        422, "Dados de entrada inválidos.", "REQUISICAO_INVALIDA", detalhes=detalhes
+        422, "Dados de entrada inválidos.", "REQUISICAO_INVALIDA", extras={"detalhes": detalhes}
     )
 
 
