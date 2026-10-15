@@ -6,6 +6,7 @@ um processor que roda antes de qualquer renderização, inclusive para logs de
 bibliotecas (uvicorn, FastStream, SQLAlchemy) que passam pelo logging padrão.
 """
 
+import dataclasses
 import logging
 import re
 import sys
@@ -13,6 +14,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 import structlog
+from pydantic import BaseModel
 from structlog.typing import EventDict, Processor, WrappedLogger
 
 from plataforma.correlation import obter_correlation_id
@@ -37,36 +39,70 @@ CHAVES_SENSIVEIS = frozenset(
     }
 )
 
+_PADRAO_CARTAO = re.compile(
+    # 13 a 19 dígitos, contíguos ou separados por espaço/hífen ("4111 1111 1111 1111").
+    # Não começa nem termina colado a letra/dígito nem a "<alfanumérico>-": assim
+    # trace_id hexadecimal, UUID e ids como "pedido-1234567890123" ficam intactos.
+    r"(?<![0-9A-Za-z])(?<![0-9A-Za-z]-)\d(?:[ -]?\d){12,18}(?!-?[0-9A-Za-z])"
+)
+
 _PADROES_SENSIVEIS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]+"),
     re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"),
-    re.compile(r"(?<![0-9A-Za-z])\d{13,19}(?![0-9A-Za-z])"),
+    _PADRAO_CARTAO,
 )
 
 _handler_instalado: logging.Handler | None = None
 
 
+def _redigir_texto(texto: str) -> str:
+    for padrao in _PADROES_SENSIVEIS:
+        texto = padrao.sub(REDIGIDO, texto)
+    return texto
+
+
 def _redigir(valor: Any) -> Any:
     if isinstance(valor, str):
-        for padrao in _PADROES_SENSIVEIS:
-            valor = padrao.sub(REDIGIDO, valor)
+        return _redigir_texto(valor)
+    if valor is None or isinstance(valor, bool | float):
         return valor
+    if isinstance(valor, int):
+        return REDIGIDO if 13 <= len(str(abs(valor))) <= 19 else valor
+    if isinstance(valor, BaseModel):
+        return _redigir(valor.model_dump(mode="json"))
+    if dataclasses.is_dataclass(valor) and not isinstance(valor, type):
+        return _redigir(dataclasses.asdict(valor))
     if isinstance(valor, Mapping):
         return {
             chave: REDIGIDO if str(chave).lower() in CHAVES_SENSIVEIS else _redigir(item)
             for chave, item in valor.items()
         }
-    if isinstance(valor, list | tuple):
+    if isinstance(valor, list | tuple | set | frozenset):
         return [_redigir(item) for item in valor]
-    return valor
+    return _redigir_texto(str(valor))
 
 
 def redigir_dados_sensiveis(_logger: WrappedLogger, _metodo: str, evento: EventDict) -> EventDict:
-    """Processor structlog: troca valores sensíveis por ``***``."""
+    """Processor structlog: troca valores sensíveis por ``***``.
+
+    BaseModel e dataclass viram dicionários antes da redação; outros objetos viram
+    texto. Chaves internas do structlog (``_record``, ``_from_structlog``) passam intactas.
+    """
     return {
-        chave: REDIGIDO if chave.lower() in CHAVES_SENSIVEIS else _redigir(valor)
+        chave: (
+            valor
+            if chave.startswith("_")
+            else REDIGIDO
+            if chave.lower() in CHAVES_SENSIVEIS
+            else _redigir(valor)
+        )
         for chave, valor in evento.items()
     }
+
+
+def _redigir_linha(_logger: WrappedLogger, _metodo: str, linha: Any) -> Any:
+    """Última barreira no formato console: redige a linha já renderizada."""
+    return _redigir_texto(linha) if isinstance(linha, str) else linha
 
 
 def _contexto(servico: str) -> Processor:
@@ -110,7 +146,8 @@ def configurar_logs(
         ]
     else:
         renderizacao = [
-            structlog.dev.ConsoleRenderer(exception_formatter=structlog.dev.plain_traceback)
+            structlog.dev.ConsoleRenderer(exception_formatter=structlog.dev.plain_traceback),
+            _redigir_linha,
         ]
 
     structlog.configure(
