@@ -58,7 +58,13 @@ class RepositorioChavesIdempotencia(Protocol):
         """Grava a resposta. Sem efeito se a chave já estiver concluída."""
         ...
 
-    async def remover(self, escopo: str, chave: str) -> None: ...
+    async def remover(self, escopo: str, chave: str) -> None:
+        """Libera uma reserva ainda ``em_processamento``.
+
+        Chave concluída nunca é removida: a conclusão é gravada na transação do efeito,
+        então apagá-la depois do commit faria uma repetição refazer o efeito.
+        """
+        ...
 
     async def remover_expiradas(self, antes_de: datetime) -> int: ...
 

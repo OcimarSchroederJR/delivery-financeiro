@@ -222,3 +222,29 @@ async def test_falha_ao_liberar_nao_esconde_o_erro_original() -> None:
         await _executor(estado, fabrica=fabrica).executar(
             chave="k-1", escopo=ESCOPO, dados=DADOS, operacao=operacao
         )
+
+
+@pytest.mark.parametrize(
+    "erro", [ErroDependenciaIndisponivel("broker"), RuntimeError("falha depois do commit")]
+)
+async def test_erro_depois_do_efeito_commitado_nao_libera_a_chave(erro: Exception) -> None:
+    estado = EstadoFake()
+    executor = _executor(estado)
+    efeitos: list[str] = []
+
+    async def operacao(reserva: ReservaIdempotencia) -> str:
+        async with UnidadeDeTrabalhoFake(estado) as uow:
+            efeitos.append("estorno")
+            await uow.chaves_idempotencia.concluir(
+                reserva.escopo, reserva.chave, status_resposta=201, corpo_resposta={"id": "e-1"}
+            )
+            await uow.commit()
+        raise erro
+
+    with pytest.raises(type(erro)):
+        await executor.executar(chave="k-1", escopo=ESCOPO, dados=DADOS, operacao=operacao)
+    registro = estado.chaves[(ESCOPO, "k-1")]
+    assert (registro.status, registro.status_resposta) == (StatusChave.CONCLUIDA, 201)
+    repetida = await executor.executar(chave="k-1", escopo=ESCOPO, dados=DADOS, operacao=operacao)
+    assert repetida == RespostaGravada(status=201, corpo={"id": "e-1"})
+    assert efeitos == ["estorno"]

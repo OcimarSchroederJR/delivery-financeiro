@@ -1,6 +1,6 @@
 import asyncio
-from collections.abc import AsyncIterator
-from typing import Any
+from collections.abc import AsyncIterator, Mapping
+from typing import Any, Self
 
 import httpx
 import pytest
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from pagamentos.adaptadores.clientes.gateway_simulado import GatewaySimulado
 from pagamentos.adaptadores.db.modelos import MensagemOutbox
+from pagamentos.adaptadores.db.unidade_de_trabalho import UnidadeDeTrabalhoSql
 from pagamentos.api import Substituicoes, criar_app
 from pagamentos.aplicacao.portas import GatewayDePagamento
 from pagamentos.config import Config
@@ -24,6 +25,7 @@ from pagamentos.testes.requisicoes import (
     verificador_de_teste,
 )
 from plataforma.db import criar_engine, criar_fabrica_sessoes
+from plataforma.erros import ErroDependenciaIndisponivel
 from plataforma.testes.tokens import SEGREDO_SERVICO_TESTE
 
 pytestmark = pytest.mark.integracao
@@ -219,6 +221,74 @@ async def test_estorno_repetido_pela_saga_no_banco_real(
     primeira = await api_real.post(rota, json=corpo, headers=servico)
     segunda = await api_real.post(rota, json=corpo, headers=servico)
     assert primeira.json()["id"] == segunda.json()["id"]
+    assert await _escalar(banco_migrado, "SELECT count(*) FROM estornos") == 1
+    assert (
+        await _escalar(
+            banco_migrado, "SELECT count(*) FROM outbox WHERE tipo = 'pagamento.estornado'"
+        )
+        == 1
+    )
+
+
+class _UnidadeQueFalhaDepoisDoCommitDoEstorno(UnidadeDeTrabalhoSql):
+    """Simula uma falha (ex.: serialização ou publicação) logo depois do commit do estorno."""
+
+    falhas_restantes = 1
+
+    async def __aenter__(self) -> Self:
+        await super().__aenter__()
+        self.tipos_registrados: list[str] = []
+        registrar = self.eventos.registrar
+
+        def registrar_e_anotar(tipo: str, dados: Mapping[str, Any]) -> None:
+            self.tipos_registrados.append(tipo)
+            registrar(tipo, dados)
+
+        self.eventos.registrar = registrar_e_anotar  # type: ignore[method-assign]
+        return self
+
+    async def commit(self) -> None:
+        await super().commit()
+        classe = _UnidadeQueFalhaDepoisDoCommitDoEstorno
+        if "pagamento.estornado" in self.tipos_registrados and classe.falhas_restantes > 0:
+            classe.falhas_restantes -= 1
+            raise ErroDependenciaIndisponivel("broker")
+
+
+async def test_falha_depois_do_commit_do_estorno_nao_estorna_de_novo(banco_migrado: str) -> None:
+    engine = criar_engine(banco_migrado)
+    fabrica_sessoes = criar_fabrica_sessoes(engine)
+    _UnidadeQueFalhaDepoisDoCommitDoEstorno.falhas_restantes = 1
+    config = Config(
+        token_servico_segredo=SecretStr(SEGREDO_SERVICO_TESTE),
+        ambiente="teste",
+        database_url=banco_migrado,
+        rabbitmq_url="amqp://guest:guest@127.0.0.1:1/",
+    )
+    substituicoes = Substituicoes(
+        verificador=verificador_de_teste(),
+        pedidos=ConsultaPedidosFake(),
+        gateway=GatewaySimulado(),
+        fabrica_uow=lambda: _UnidadeQueFalhaDepoisDoCommitDoEstorno(fabrica_sessoes),
+    )
+    try:
+        async with LifespanManager(criar_app(config, substituicoes)) as gerenciador:
+            transporte = httpx.ASGITransport(app=gerenciador.app, raise_app_exceptions=False)
+            async with httpx.AsyncClient(transport=transporte, base_url="http://teste") as http:
+                pagamento_id = (
+                    await http.post(ROTA, json=corpo_pix(), headers=cabecalhos(chave="k-pos"))
+                ).json()["id"]
+                rota = f"{ROTA}/{pagamento_id}/estornos"
+                corpo = {"valor_centavos": 1000, "motivo": "disputa procedente"}
+                servico = cabecalhos("servico", "avaliacoes", chave="disputa-pos-commit")
+                primeira = await http.post(rota, json=corpo, headers=servico)
+                segunda = await http.post(rota, json=corpo, headers=servico)
+    finally:
+        await engine.dispose()
+    assert primeira.status_code == 503
+    assert segunda.status_code == 201
+    assert segunda.headers["Idempotency-Replayed"] == "true"
+    assert segunda.json()["valor_centavos"] == 1000
     assert await _escalar(banco_migrado, "SELECT count(*) FROM estornos") == 1
     assert (
         await _escalar(

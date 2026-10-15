@@ -217,7 +217,10 @@ class RepositorioChavesIdempotenciaSql:
 
     async def remover(self, escopo: str, chave: str) -> None:
         await self._sessao.execute(
-            delete(ChaveIdempotenciaModelo).where(*self._desta(escopo, chave))
+            delete(ChaveIdempotenciaModelo).where(
+                *self._desta(escopo, chave),
+                ChaveIdempotenciaModelo.status == StatusChave.EM_PROCESSAMENTO.value,
+            )
         )
 
     async def remover_expiradas(self, antes_de: datetime) -> int:

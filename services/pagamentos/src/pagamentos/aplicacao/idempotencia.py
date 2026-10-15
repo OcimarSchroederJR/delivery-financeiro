@@ -6,7 +6,9 @@
 3. Executa a operação. Quem muda estado conclui a chave **na mesma transação**
    do efeito (ver ``ReservaIdempotencia``).
 4. Erro 4xx: grava a resposta de erro. 5xx ou exceção inesperada: remove a chave,
-   e o cliente pode repetir com a mesma chave.
+   e o cliente pode repetir com a mesma chave, **desde que o efeito não tenha sido
+   commitado**: se a operação já concluiu a chave (efeito gravado) e falhou depois,
+   a chave fica e a repetição devolve a resposta gravada, sem refazer o efeito.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -133,6 +135,7 @@ class ExecutorIdempotente:
     async def _liberar(self, reserva: ReservaIdempotencia) -> None:
         try:
             async with self._fabrica_uow() as uow:
+                # Só remove se ainda estiver em processamento (efeito não commitado).
                 await uow.chaves_idempotencia.remover(reserva.escopo, reserva.chave)
                 await uow.commit()
         except Exception:

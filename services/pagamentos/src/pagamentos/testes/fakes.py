@@ -134,7 +134,9 @@ class RepositorioChavesIdempotenciaFake:
             registro.corpo_resposta = dict(corpo_resposta)
 
     async def remover(self, escopo: str, chave: str) -> None:
-        self._estado.chaves.pop((escopo, chave), None)
+        registro = self._estado.chaves.get((escopo, chave))
+        if registro is not None and registro.status == StatusChave.EM_PROCESSAMENTO:
+            del self._estado.chaves[(escopo, chave)]
 
     async def remover_expiradas(self, antes_de: datetime) -> int:
         expiradas = [k for k, r in self._estado.chaves.items() if r.criado_em < antes_de]

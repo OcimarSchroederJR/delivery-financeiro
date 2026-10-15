@@ -175,3 +175,22 @@ async def test_chaves_substituir_remover_e_expirar(uow) -> None:
         await unidade.commit()
     async with uow() as unidade:
         assert await unidade.chaves_idempotencia.obter("e", "nova") is None
+
+
+async def test_remover_nao_apaga_chave_concluida(uow) -> None:
+    reserva = RegistroIdempotencia.reservar(
+        escopo="e", chave="feita", hash_requisicao="h", agora=INSTANTE
+    )
+    async with uow() as unidade:
+        await unidade.chaves_idempotencia.reservar(reserva)
+        await unidade.chaves_idempotencia.concluir(
+            "e", "feita", status_resposta=201, corpo_resposta={"id": "x"}
+        )
+        await unidade.commit()
+    async with uow() as unidade:
+        await unidade.chaves_idempotencia.remover("e", "feita")
+        await unidade.commit()
+    async with uow() as unidade:
+        registro = await unidade.chaves_idempotencia.obter("e", "feita")
+    assert registro is not None
+    assert registro.resposta() == (201, {"id": "x"})
