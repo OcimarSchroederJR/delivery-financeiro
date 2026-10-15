@@ -18,7 +18,6 @@ from avaliacoes.aplicacao.portas import (
     PagamentoExterno,
     ResultadoEstorno,
 )
-from avaliacoes.dominio.erros import PedidoDeOutroCliente
 from plataforma.circuit_breaker import CircuitoAberto
 from plataforma.cliente_http import ClienteHttp
 from plataforma.erros import ErroDependenciaIndisponivel
@@ -62,9 +61,7 @@ class PagamentosHttp:
                 token=token,
                 params={"pedido_id": pedido_id, "pagina": pagina, "tamanho": TAMANHO_PAGINA},
             )
-            if resposta.status_code == 403:
-                raise PedidoDeOutroCliente()
-            if resposta.status_code != 200:
+            if resposta.status_code != 200:  # a listagem não tem erro no contrato (§4.1)
                 _log.warning("pagamentos_resposta_inesperada", status=resposta.status_code)
                 raise ErroDependenciaIndisponivel("pagamentos")
             try:

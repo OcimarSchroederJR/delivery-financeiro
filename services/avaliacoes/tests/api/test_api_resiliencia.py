@@ -146,3 +146,20 @@ async def test_pagamentos_fora_na_saga_202_e_worker_conclui_com_token_de_servico
     usuario = await VerificadorTokenServico(SEGREDO_SERVICO_TESTE).verificar(token)
     assert usuario.papel is Papel.SERVICO
     assert banco.tipos_de_eventos() == ["disputa.aberta", "disputa.resolvida"]
+
+
+@respx.mock(base_url=URL_PAGAMENTOS)
+async def test_disputa_de_pedido_de_outro_cliente_vira_422_pagamento_nao_encontrado(
+    respx_mock: respx.MockRouter, api_real: httpx.AsyncClient, token_cliente: str
+) -> None:
+    """Contrato §4.1: a listagem só mostra ao cliente os pagamentos dele."""
+    respx_mock.get("/v1/pagamentos").respond(
+        200, json={"itens": [], "pagina": 1, "tamanho": 100, "total": 0}
+    )
+    resposta = await api_real.post(
+        "/v1/disputas",
+        json={"pedido_id": "ped-3", "motivo": "qualidade", "valor_solicitado_centavos": 1000},
+        headers=autorizacao(token_cliente),
+    )
+    assert resposta.status_code == 422
+    assert resposta.json()["codigo"] == "PAGAMENTO_NAO_ENCONTRADO"

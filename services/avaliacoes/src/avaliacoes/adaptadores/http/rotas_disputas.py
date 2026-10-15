@@ -33,6 +33,13 @@ SoAdmin = Annotated[Usuario, Depends(exigir_papeis(Papel.ADMIN))]
     response_model=DisputaSaida,
     responses=respostas_erro(401, 403, 409, 422, 503),
     summary="Abre uma disputa sobre um pedido pago",
+    description=(
+        "Só o papel `cliente`. O pagamento contestável (aprovado ou parcialmente estornado) "
+        "é buscado em Pagamentos com o token do cliente, e a listagem de Pagamentos só "
+        "mostra ao cliente os pagamentos dele. Por isso, um pedido de outro cliente responde "
+        "`422 PAGAMENTO_NAO_ENCONTRADO` (não `403`); o `403` é para papel diferente de "
+        "`cliente`."
+    ),
 )
 async def abrir(entrada: DisputaEntrada, usuario: SoCliente, deps: Deps) -> DisputaSaida:
     caso = AbrirDisputa(deps.uow, deps.pagamentos, relogio=deps.relogio)

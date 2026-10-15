@@ -11,7 +11,6 @@ from avaliacoes.aplicacao.portas import (
     FalhaTransitoria,
     PagamentoExterno,
 )
-from avaliacoes.dominio.erros import PedidoDeOutroCliente
 from plataforma.cliente_http import ClienteHttp
 from plataforma.erros import ErroDependenciaIndisponivel
 
@@ -89,11 +88,14 @@ async def test_listagem_percorre_paginas_e_ignora_outro_pedido(
 
 
 @respx.mock(base_url=URL_PAGAMENTOS)
-async def test_listagem_403_e_503(respx_mock: respx.MockRouter, pagamentos: PagamentosHttp) -> None:
+async def test_listagem_fora_do_contrato_vira_503(
+    respx_mock: respx.MockRouter, pagamentos: PagamentosHttp
+) -> None:
+    """§4.1 não prevê 403 na listagem (ela só mostra os pagamentos do próprio cliente)."""
     respx_mock.get("/v1/pagamentos", params={"pedido_id": "ped-3"}).respond(403)
     respx_mock.get("/v1/pagamentos", params={"pedido_id": "ped-4"}).respond(503)
     respx_mock.get("/v1/pagamentos", params={"pedido_id": "ped-5"}).respond(200, json={"x": 1})
-    with pytest.raises(PedidoDeOutroCliente):
+    with pytest.raises(ErroDependenciaIndisponivel):
         await pagamentos.listar_por_pedido("ped-3", token="t")
     with pytest.raises(ErroDependenciaIndisponivel):
         await pagamentos.listar_por_pedido("ped-4", token="t")

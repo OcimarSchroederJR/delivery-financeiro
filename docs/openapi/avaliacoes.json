@@ -966,6 +966,7 @@
         ]
       },
       "post": {
+        "description": "Só o papel `cliente`. O pagamento contestável (aprovado ou parcialmente estornado) é buscado em Pagamentos com o token do cliente, e a listagem de Pagamentos só mostra ao cliente os pagamentos dele. Por isso, um pedido de outro cliente responde `422 PAGAMENTO_NAO_ENCONTRADO` (não `403`); o `403` é para papel diferente de `cliente`.",
         "operationId": "abrir_v1_disputas_post",
         "requestBody": {
           "content": {

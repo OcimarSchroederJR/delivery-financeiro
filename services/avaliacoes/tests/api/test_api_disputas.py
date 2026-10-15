@@ -234,3 +234,10 @@ async def test_patch_com_erro_inesperado_na_saga_responde_202(
     resposta = await _decidir(api, token_admin, disputa_id, status="procedente")
     assert resposta.status_code == 202
     assert resposta.json()["status"] == "estorno_pendente"
+
+
+async def test_openapi_documenta_pedido_de_outro_cliente_como_422(api: httpx.AsyncClient) -> None:
+    especificacao = (await api.get("/openapi.json")).json()
+    descricao = especificacao["paths"]["/v1/disputas"]["post"]["description"]
+    assert "outro cliente" in descricao
+    assert "PAGAMENTO_NAO_ENCONTRADO" in descricao
