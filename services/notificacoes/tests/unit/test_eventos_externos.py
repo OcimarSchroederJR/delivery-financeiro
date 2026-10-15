@@ -83,3 +83,31 @@ def test_interpretar_corpo() -> None:
     for invalido in (b"{", b"\xff", b" " * (64 * 1024 + 1)):
         with pytest.raises(EnvelopeInvalido):
             interpretar_corpo(invalido)
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("cliente_id", "c" * 129),
+        ("pedido_id", "ped-1\nBcc: vitima@exemplo.com"),
+        ("entregador_id", "ent\r1"),
+        ("pedido_id", "ped\x00"),
+        ("pedido_id", ""),
+        ("cliente_id", 123),
+    ],
+)
+def test_ids_dos_dados_precisam_caber_no_banco_e_nao_ter_controle(
+    campo: str, valor: object
+) -> None:
+    dados = {"pedido_id": "ped-3", "cliente_id": "cliente-2", campo: valor}
+    with pytest.raises(EnvelopeInvalido) as erro:
+        validar_envelope(_envelope(dados=dados))
+    assert erro.value.status_http == 400
+    assert erro.value.detalhes["detalhes"][0]["campo"] == f"dados.{campo}"
+    if isinstance(valor, str) and valor:
+        assert valor not in str(erro.value.detalhes)  # não ecoa a entrada
+
+
+def test_id_com_128_caracteres_e_aceito() -> None:
+    envelope = validar_envelope(_envelope(dados={"cliente_id": "c" * 128, "pedido_id": "p"}))
+    assert envelope.dados["cliente_id"] == "c" * 128

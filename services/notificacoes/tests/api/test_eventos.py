@@ -92,3 +92,13 @@ async def test_openapi_documenta_envelope_e_status(api: httpx.AsyncClient) -> No
         esquema["properties"]
     )
     assert {"202", "400", "401", "403"} <= set(operacao["responses"])
+
+
+async def test_eventos_dados_com_id_invalido_400(api: httpx.AsyncClient, bearer: Bearer) -> None:
+    corpo = _envelope(dados={"pedido_id": "ped-1\nX", "cliente_id": "c" * 200})
+    resposta = await api.post("/v1/eventos", json=corpo, headers=bearer("logistica", "entregador"))
+    assert (resposta.status_code, resposta.json()["codigo"]) == (400, "ENVELOPE_INVALIDO")
+    assert {item["campo"] for item in resposta.json()["detalhes"]} == {
+        "dados.pedido_id",
+        "dados.cliente_id",
+    }
