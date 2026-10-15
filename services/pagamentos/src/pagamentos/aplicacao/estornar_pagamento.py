@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
-from pagamentos.aplicacao.idempotencia import ReservaIdempotencia
+from pagamentos.aplicacao.idempotencia import ReservaIdempotencia, concluir_reserva
 from pagamentos.aplicacao.portas import (
     Apresentador,
     FabricaUnidadeDeTrabalho,
@@ -65,9 +65,9 @@ class EstornarPagamento:
                 TIPO_PAGAMENTO_ESTORNADO, dados_pagamento_estornado(pagamento, estorno)
             )
             if reserva is not None:
-                await uow.chaves_idempotencia.concluir(
-                    reserva.escopo,
-                    reserva.chave,
+                await concluir_reserva(
+                    uow,
+                    reserva,
                     status_resposta=201,
                     corpo_resposta=self._apresentador.estorno(estorno, pagamento.status),
                 )

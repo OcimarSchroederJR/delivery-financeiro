@@ -49,20 +49,30 @@ class RepositorioChavesIdempotencia(Protocol):
         ...
 
     async def substituir(self, registro: RegistroIdempotencia) -> None:
-        """Reaproveita uma chave expirada ou abandonada com uma nova reserva."""
+        """Reaproveita uma chave expirada ou abandonada com uma nova reserva (dono novo)."""
         ...
 
     async def concluir(
-        self, escopo: str, chave: str, *, status_resposta: int, corpo_resposta: Mapping[str, Any]
-    ) -> None:
-        """Grava a resposta. Sem efeito se a chave já estiver concluída."""
+        self,
+        escopo: str,
+        chave: str,
+        dono: UUID,
+        *,
+        status_resposta: int,
+        corpo_resposta: Mapping[str, Any],
+    ) -> bool:
+        """Grava a resposta se a reserva ainda é deste ``dono`` e está em processamento.
+
+        Retorna ``False`` (sem alterar nada) se a chave foi reassumida por outro dono
+        ou já está concluída.
+        """
         ...
 
-    async def remover(self, escopo: str, chave: str) -> None:
-        """Libera uma reserva ainda ``em_processamento``.
+    async def remover(self, escopo: str, chave: str, dono: UUID) -> None:
+        """Libera a reserva deste ``dono`` se ainda estiver ``em_processamento``.
 
-        Chave concluída nunca é removida: a conclusão é gravada na transação do efeito,
-        então apagá-la depois do commit faria uma repetição refazer o efeito.
+        Chave concluída nunca é removida (a conclusão é gravada na transação do efeito)
+        e a reserva de outro dono (reassumida) também não.
         """
         ...
 

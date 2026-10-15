@@ -124,18 +124,35 @@ class RepositorioChavesIdempotenciaFake:
     async def substituir(self, registro: RegistroIdempotencia) -> None:
         self._estado.chaves[(registro.escopo, registro.chave)] = registro
 
-    async def concluir(
-        self, escopo: str, chave: str, *, status_resposta: int, corpo_resposta: Mapping[str, Any]
-    ) -> None:
+    def _reserva_de(self, escopo: str, chave: str, dono: UUID) -> RegistroIdempotencia | None:
         registro = self._estado.chaves.get((escopo, chave))
-        if registro is not None and registro.status == StatusChave.EM_PROCESSAMENTO:
-            registro.status = StatusChave.CONCLUIDA
-            registro.status_resposta = status_resposta
-            registro.corpo_resposta = dict(corpo_resposta)
+        if (
+            registro is not None
+            and registro.status == StatusChave.EM_PROCESSAMENTO
+            and registro.dono == dono
+        ):
+            return registro
+        return None
 
-    async def remover(self, escopo: str, chave: str) -> None:
-        registro = self._estado.chaves.get((escopo, chave))
-        if registro is not None and registro.status == StatusChave.EM_PROCESSAMENTO:
+    async def concluir(
+        self,
+        escopo: str,
+        chave: str,
+        dono: UUID,
+        *,
+        status_resposta: int,
+        corpo_resposta: Mapping[str, Any],
+    ) -> bool:
+        registro = self._reserva_de(escopo, chave, dono)
+        if registro is None:
+            return False
+        registro.status = StatusChave.CONCLUIDA
+        registro.status_resposta = status_resposta
+        registro.corpo_resposta = dict(corpo_resposta)
+        return True
+
+    async def remover(self, escopo: str, chave: str, dono: UUID) -> None:
+        if self._reserva_de(escopo, chave, dono) is not None:
             del self._estado.chaves[(escopo, chave)]
 
     async def remover_expiradas(self, antes_de: datetime) -> int:

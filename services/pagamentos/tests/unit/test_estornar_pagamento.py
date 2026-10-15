@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 from uuid import UUID, uuid4
 
@@ -48,10 +49,11 @@ def _semear(estado: EstadoFake, pagamento: Pagamento | None = None) -> Pagamento
 
 
 def _reservar(estado: EstadoFake) -> ReservaIdempotencia:
-    estado.chaves[(ESCOPO, "disputa-1")] = RegistroIdempotencia.reservar(
+    registro = RegistroIdempotencia.reservar(
         escopo=ESCOPO, chave="disputa-1", hash_requisicao="h", agora=INSTANTE
     )
-    return ReservaIdempotencia(ESCOPO, "disputa-1")
+    estado.chaves[(ESCOPO, "disputa-1")] = registro
+    return ReservaIdempotencia(ESCOPO, "disputa-1", registro.dono)
 
 
 async def test_estorno_parcial_grava_e_publica_evento() -> None:
@@ -120,3 +122,82 @@ async def test_erro_de_negocio_deixa_a_chave_para_o_executor() -> None:
     with pytest.raises(ValorExcedeSaldoEstornavel):
         await _caso(estado).executar(ComandoEstornar(pagamento.id, "x", 9999), reserva)
     assert estado.chaves[(ESCOPO, "disputa-1")].status == StatusChave.EM_PROCESSAMENTO
+
+
+async def _reassumir(estado: EstadoFake, *, a_falha_com_503: bool) -> list[Exception]:
+    """A reserva a chave e para; B reassume depois de 60 s e estorna; então A retoma."""
+    from pagamentos.aplicacao.idempotencia import ExecutorIdempotente
+    from plataforma.erros import ErroDependenciaIndisponivel
+
+    pagamento = estado.pagamentos[next(iter(estado.pagamentos))]
+    comando = ComandoEstornar(pagamento.id, "disputa", 1000)
+    dados = {"corpo": {"valor_centavos": 1000, "motivo": "disputa"}}
+
+    def executor(relogio: RelogioFake) -> ExecutorIdempotente:
+        return ExecutorIdempotente(
+            fabrica_fake(estado), ApresentadorFake(), chave_hash=b"h" * 32, relogio=relogio
+        )
+
+    def caso(relogio: RelogioFake) -> EstornarPagamento:
+        return EstornarPagamento(
+            fabrica_uow=fabrica_fake(estado), apresentador=ApresentadorFake(), relogio=relogio
+        )
+
+    a_reservou, a_pode_seguir = asyncio.Event(), asyncio.Event()
+
+    async def operacao_a(reserva: ReservaIdempotencia) -> ResultadoEstorno:
+        a_reservou.set()
+        await a_pode_seguir.wait()
+        if a_falha_com_503:
+            raise ErroDependenciaIndisponivel("gateway")
+        return await caso(RelogioFake(INSTANTE)).executar(comando, reserva)
+
+    relogio_b = RelogioFake(INSTANTE + timedelta(seconds=61))
+    tarefa_a = asyncio.create_task(
+        executor(RelogioFake(INSTANTE)).executar(
+            chave="disputa-1", escopo=ESCOPO, dados=dados, operacao=operacao_a
+        )
+    )
+    await a_reservou.wait()
+    b_reservou, b_pode_seguir = asyncio.Event(), asyncio.Event()
+
+    async def operacao_b(reserva: ReservaIdempotencia) -> ResultadoEstorno:
+        b_reservou.set()
+        await b_pode_seguir.wait()
+        return await caso(relogio_b).executar(comando, reserva)
+
+    tarefa_b = asyncio.create_task(
+        executor(relogio_b).executar(
+            chave="disputa-1", escopo=ESCOPO, dados=dados, operacao=operacao_b
+        )
+    )
+    await b_reservou.wait()
+    if a_falha_com_503:
+        a_pode_seguir.set()  # A falha (5xx) depois que B reassumiu, antes de B concluir
+        await asyncio.gather(tarefa_a, return_exceptions=True)
+        b_pode_seguir.set()
+    else:
+        b_pode_seguir.set()  # B estorna e conclui; só então A retoma
+        await asyncio.gather(tarefa_b, return_exceptions=True)
+        a_pode_seguir.set()
+    resultados = await asyncio.gather(tarefa_a, tarefa_b, return_exceptions=True)
+    return [r for r in resultados if isinstance(r, Exception)]
+
+
+async def test_reassuncao_apos_60s_nao_estorna_duas_vezes() -> None:
+    estado = EstadoFake()
+    pagamento = _semear(estado)
+    erros = await _reassumir(estado, a_falha_com_503=False)
+    assert [type(e).__name__ for e in erros] == ["ReservaIdempotenciaPerdida"]
+    assert len(estado.pagamentos[pagamento.id].estornos) == 1
+    assert [tipo for tipo, _ in estado.eventos] == ["pagamento.estornado"]
+    assert estado.chaves[(ESCOPO, "disputa-1")].status == StatusChave.CONCLUIDA
+
+
+async def test_falha_de_quem_perdeu_a_reserva_nao_apaga_a_reserva_nova() -> None:
+    estado = EstadoFake()
+    pagamento = _semear(estado)
+    erros = await _reassumir(estado, a_falha_com_503=True)
+    assert [type(e).__name__ for e in erros] == ["ErroDependenciaIndisponivel"]
+    assert len(estado.pagamentos[pagamento.id].estornos) == 1
+    assert estado.chaves[(ESCOPO, "disputa-1")].status == StatusChave.CONCLUIDA

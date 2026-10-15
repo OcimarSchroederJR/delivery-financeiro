@@ -136,10 +136,22 @@ async def test_chaves_reservar_obter_e_concluir(uow) -> None:
     async with uow() as unidade:
         chaves = unidade.chaves_idempotencia
         assert await chaves.obter("POST /v1/pagamentos", "k-1", para_atualizar=True) == reserva
-        await chaves.concluir(
-            "POST /v1/pagamentos", "k-1", status_resposta=201, corpo_resposta={"id": "x"}
+        assert (
+            await chaves.concluir(
+                "POST /v1/pagamentos", "k-1", uuid4(), status_resposta=500, corpo_resposta={}
+            )
+            is False
+        )  # outro dono
+        assert await chaves.concluir(
+            "POST /v1/pagamentos",
+            "k-1",
+            reserva.dono,
+            status_resposta=201,
+            corpo_resposta={"id": "x"},
         )
-        await chaves.concluir("POST /v1/pagamentos", "k-1", status_resposta=409, corpo_resposta={})
+        assert not await chaves.concluir(
+            "POST /v1/pagamentos", "k-1", reserva.dono, status_resposta=409, corpo_resposta={}
+        )
         await unidade.commit()
     async with uow() as unidade:
         registro = await unidade.chaves_idempotencia.obter("POST /v1/pagamentos", "k-1")
@@ -171,7 +183,11 @@ async def test_chaves_substituir_remover_e_expirar(uow) -> None:
     async with uow() as unidade:
         assert await unidade.chaves_idempotencia.obter("e", "velha") is None
         assert await unidade.chaves_idempotencia.obter("e", "nova") == substituta
-        await unidade.chaves_idempotencia.remover("e", "nova")
+        await unidade.chaves_idempotencia.remover("e", "nova", recente.dono)  # dono antigo
+        await unidade.commit()
+    async with uow() as unidade:
+        assert await unidade.chaves_idempotencia.obter("e", "nova") == substituta
+        await unidade.chaves_idempotencia.remover("e", "nova", substituta.dono)
         await unidade.commit()
     async with uow() as unidade:
         assert await unidade.chaves_idempotencia.obter("e", "nova") is None
@@ -184,11 +200,11 @@ async def test_remover_nao_apaga_chave_concluida(uow) -> None:
     async with uow() as unidade:
         await unidade.chaves_idempotencia.reservar(reserva)
         await unidade.chaves_idempotencia.concluir(
-            "e", "feita", status_resposta=201, corpo_resposta={"id": "x"}
+            "e", "feita", reserva.dono, status_resposta=201, corpo_resposta={"id": "x"}
         )
         await unidade.commit()
     async with uow() as unidade:
-        await unidade.chaves_idempotencia.remover("e", "feita")
+        await unidade.chaves_idempotencia.remover("e", "feita", reserva.dono)
         await unidade.commit()
     async with uow() as unidade:
         registro = await unidade.chaves_idempotencia.obter("e", "feita")

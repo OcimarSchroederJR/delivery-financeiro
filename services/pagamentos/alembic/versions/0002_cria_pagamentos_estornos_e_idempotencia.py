@@ -72,6 +72,7 @@ def upgrade() -> None:
         sa.Column("status_resposta", sa.Integer(), nullable=True),
         sa.Column("corpo_resposta", postgresql.JSONB(), nullable=True),
         sa.Column("criado_em", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("dono", sa.Uuid(), nullable=False),
         sa.CheckConstraint(
             "status IN ('em_processamento', 'concluida')",
             name="ck_chaves_idempotencia_status_valido",

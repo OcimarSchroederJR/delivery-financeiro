@@ -83,3 +83,5 @@ class ChaveIdempotenciaModelo(Base):
     status_resposta: Mapped[int | None] = mapped_column(Integer)
     corpo_resposta: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # Token da reserva atual: reassumir a chave troca o dono (ver dominio.idempotencia).
+    dono: Mapped[uuid.UUID]

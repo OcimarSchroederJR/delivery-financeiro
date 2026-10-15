@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from pagamentos.aplicacao.idempotencia import ReservaIdempotencia
+from pagamentos.aplicacao.idempotencia import ReservaIdempotencia, concluir_reserva
 from pagamentos.aplicacao.portas import (
     Apresentador,
     ConsultaPedidos,
@@ -93,9 +93,7 @@ class CriarPagamento:
             uow.eventos.registrar(tipo, dados)
             if reserva is not None:
                 status, corpo = self._resposta(pagamento)
-                await uow.chaves_idempotencia.concluir(
-                    reserva.escopo, reserva.chave, status_resposta=status, corpo_resposta=corpo
-                )
+                await concluir_reserva(uow, reserva, status_resposta=status, corpo_resposta=corpo)
             await uow.commit()
         if not pagamento.efetivado:
             _log.info(

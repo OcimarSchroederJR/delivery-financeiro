@@ -192,10 +192,13 @@ async def test_corrida_com_outro_pagamento_vira_pedido_ja_pago() -> None:
 
 async def test_conclui_a_chave_na_mesma_transacao() -> None:
     estado = EstadoFake()
-    estado.chaves[(ESCOPO, "k-1")] = RegistroIdempotencia.reservar(
+    registro = RegistroIdempotencia.reservar(
         escopo=ESCOPO, chave="k-1", hash_requisicao="h", agora=INSTANTE
     )
-    await _caso(estado).executar(_comando(), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1"))
+    estado.chaves[(ESCOPO, "k-1")] = registro
+    await _caso(estado).executar(
+        _comando(), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1", registro.dono)
+    )
     registro = estado.chaves[(ESCOPO, "k-1")]
     assert registro.status == StatusChave.CONCLUIDA
     assert registro.resposta() == (201, {"id": str(ID_FIXO), "status": "aprovado"})
@@ -204,12 +207,13 @@ async def test_conclui_a_chave_na_mesma_transacao() -> None:
 
 async def test_recusa_grava_409_na_chave() -> None:
     estado = EstadoFake()
-    estado.chaves[(ESCOPO, "k-1")] = RegistroIdempotencia.reservar(
+    registro = RegistroIdempotencia.reservar(
         escopo=ESCOPO, chave="k-1", hash_requisicao="h", agora=INSTANTE
     )
+    estado.chaves[(ESCOPO, "k-1")] = registro
     with pytest.raises(PagamentoRecusado):
         await _caso(estado).executar(
-            _comando(final="0002"), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1")
+            _comando(final="0002"), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1", registro.dono)
         )
     status, corpo = estado.chaves[(ESCOPO, "k-1")].resposta()
     assert status == 409
