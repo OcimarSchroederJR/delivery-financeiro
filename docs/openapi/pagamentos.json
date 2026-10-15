@@ -114,6 +114,19 @@
         "title": "CriarPagamentoEntrada",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "MetodoPagamento": {
         "enum": [
           "cartao_credito",
@@ -203,6 +216,37 @@
         "title": "PagamentoSaida",
         "type": "object"
       },
+      "Pagina_PagamentoSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/PagamentoSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[PagamentoSaida]",
+        "type": "object"
+      },
       "StatusPagamento": {
         "enum": [
           "aprovado",
@@ -212,6 +256,46 @@
         ],
         "title": "StatusPagamento",
         "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -274,6 +358,106 @@
       }
     },
     "/v1/pagamentos": {
+      "get": {
+        "operationId": "listar_pagamentos_v1_pagamentos_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pedido_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pedido Id"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_PagamentoSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista pagamentos (cliente vê só os seus; admin e serviço veem todos)",
+        "tags": [
+          "pagamentos"
+        ]
+      },
       "post": {
         "description": "O valor vem da Equipe 3. Recusa devolve 409 PAGAMENTO_RECUSADO com `pagamento_id`; a mesma Idempotency-Key com o mesmo corpo devolve a resposta gravada.",
         "operationId": "criar_pagamento_v1_pagamentos_post",
@@ -385,6 +569,83 @@
           }
         ],
         "summary": "Cria (autoriza) o pagamento de um pedido",
+        "tags": [
+          "pagamentos"
+        ]
+      }
+    },
+    "/v1/pagamentos/{pagamento_id}": {
+      "get": {
+        "operationId": "obter_pagamento_v1_pagamentos__pagamento_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagamentoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detalha um pagamento",
         "tags": [
           "pagamentos"
         ]

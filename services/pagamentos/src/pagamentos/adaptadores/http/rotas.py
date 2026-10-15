@@ -1,9 +1,9 @@
 """Rotas HTTP de pagamentos e estornos (spec §4.1)."""
 
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from pagamentos.adaptadores.http.dependencias import (
@@ -11,13 +11,19 @@ from pagamentos.adaptadores.http.dependencias import (
     CasosDeUsoDep,
     ClienteOuAdmin,
     IdempotencyKey,
+    LeitorDaLista,
     para_solicitante,
 )
-from pagamentos.adaptadores.http.esquemas import CriarPagamentoEntrada, PagamentoSaida
+from pagamentos.adaptadores.http.esquemas import (
+    PADRAO_ID_EXTERNO,
+    CriarPagamentoEntrada,
+    PagamentoSaida,
+)
 from pagamentos.aplicacao.idempotencia import ReservaIdempotencia, RespostaGravada
 from pagamentos.dominio.erros import PagamentoNaoEncontrado
 from pagamentos.dominio.pagamento import Pagamento
 from plataforma.api.erros import respostas_erro
+from plataforma.api.paginacao import Pagina, Paginacao
 
 router = APIRouter(prefix="/v1/pagamentos", tags=["pagamentos"])
 
@@ -67,3 +73,39 @@ async def criar_pagamento(
     if isinstance(resultado, RespostaGravada):
         return _json(resultado.status, resultado.corpo, repetida=True)
     return _json(201, casos.apresentador.pagamento(resultado))
+
+
+@router.get(
+    "",
+    response_model=Pagina[PagamentoSaida],
+    responses=respostas_erro(401, 403, 422),
+    summary="Lista pagamentos (cliente vê só os seus; admin e serviço veem todos)",
+)
+async def listar_pagamentos(
+    usuario: LeitorDaLista,
+    casos: CasosDeUsoDep,
+    paginacao: Paginacao,
+    pedido_id: Annotated[str | None, Query(pattern=PADRAO_ID_EXTERNO)] = None,
+) -> Pagina[PagamentoSaida]:
+    itens, total = await casos.consultas.listar(
+        para_solicitante(usuario),
+        pedido_id=pedido_id,
+        deslocamento=paginacao.deslocamento,
+        limite=paginacao.tamanho,
+    )
+    return Pagina[PagamentoSaida].criar(
+        [PagamentoSaida.de_dominio(p) for p in itens], paginacao, total
+    )
+
+
+@router.get(
+    "/{pagamento_id}",
+    response_model=PagamentoSaida,
+    responses=respostas_erro(401, 403, 404),
+    summary="Detalha um pagamento",
+)
+async def obter_pagamento(
+    pagamento_id: str, usuario: ClienteOuAdmin, casos: CasosDeUsoDep
+) -> PagamentoSaida:
+    pagamento = await casos.consultas.obter(_uuid_ou_404(pagamento_id), para_solicitante(usuario))
+    return PagamentoSaida.de_dominio(pagamento)
