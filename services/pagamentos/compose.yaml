@@ -1,0 +1,73 @@
+# Containers do serviço de Pagamentos (incluído pelo compose.yaml da raiz).
+x-imagem-pagamentos: &imagem-pagamentos
+  image: financeiro-eq5/pagamentos:local
+  build:
+    context: ../..
+    dockerfile: services/pagamentos/Dockerfile
+
+x-ambiente-pagamentos: &ambiente-pagamentos
+  AMBIENTE: local
+  LOG_FORMATO: ${LOG_FORMATO:-console}
+  ROOT_PATH: ""
+  DATABASE_URL: postgresql+asyncpg://pagamentos:pagamentos@db-pagamentos:5432/pagamentos
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  JWKS_URL: ${JWKS_URL:-http://mock-identidade:8001/.well-known/jwks.json}
+  TOKEN_SERVICO_SEGREDO: ${TOKEN_SERVICO_SEGREDO:-segredo-local-financeiro-eq5-troque-em-producao}
+  PEDIDOS_URL: ${PEDIDOS_URL:-http://mock-pedidos:8008}
+  OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+services:
+  db-pagamentos:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pagamentos
+      POSTGRES_PASSWORD: pagamentos
+      POSTGRES_DB: pagamentos
+    volumes:
+      - dados-pagamentos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagamentos -d pagamentos"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-pagamentos:
+    <<: *imagem-pagamentos
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-pagamentos
+    healthcheck:
+      disable: true
+    depends_on:
+      db-pagamentos:
+        condition: service_healthy
+    restart: "no"
+
+  pagamentos:
+    <<: *imagem-pagamentos
+    environment: *ambiente-pagamentos
+    ports:
+      - "8013:8000"
+    depends_on:
+      migrate-pagamentos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pagamentos-worker:
+    <<: *imagem-pagamentos
+    command: ["pagamentos-worker"]
+    environment: *ambiente-pagamentos
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-pagamentos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dados-pagamentos:

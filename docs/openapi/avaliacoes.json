@@ -1,0 +1,54 @@
+{
+  "info": {
+    "description": "Serviço de Avaliações da Equipe 5 (Financeiro e Pós).",
+    "title": "Avaliações",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/saude/pronto": {
+      "get": {
+        "operationId": "pronto_saude_pronto_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness: banco e broker acessíveis",
+        "tags": [
+          "saude"
+        ]
+      }
+    },
+    "/saude/vivo": {
+      "get": {
+        "operationId": "vivo_saude_vivo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Vivo Saude Vivo Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness: o processo está de pé",
+        "tags": [
+          "saude"
+        ]
+      }
+    }
+  }
+}

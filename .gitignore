@@ -1,9 +1,27 @@
-node_modules/
-coverage/
-.env
-!.env.example
-*.log
-npm-debug.log*
-.DS_Store
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 dist/
 build/
+*.egg-info/
+
+# Ambiente e segredos
+.env
+!.env.example
+
+# Node (Newman, na Fase 5)
+node_modules/
+
+# Editores e sistema
+.idea/
+.vscode/
+.DS_Store
+*.log

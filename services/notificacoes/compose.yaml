@@ -1,0 +1,79 @@
+# Containers do serviço de Notificações (incluído pelo compose.yaml da raiz).
+x-imagem-notificacoes: &imagem-notificacoes
+  image: financeiro-eq5/notificacoes:local
+  build:
+    context: ../..
+    dockerfile: services/notificacoes/Dockerfile
+
+x-ambiente-notificacoes: &ambiente-notificacoes
+  AMBIENTE: local
+  LOG_FORMATO: ${LOG_FORMATO:-console}
+  ROOT_PATH: ""
+  DATABASE_URL: postgresql+asyncpg://notificacoes:notificacoes@db-notificacoes:5432/notificacoes
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  JWKS_URL: ${JWKS_URL:-http://mock-identidade:8001/.well-known/jwks.json}
+  TOKEN_SERVICO_SEGREDO: ${TOKEN_SERVICO_SEGREDO:-segredo-local-financeiro-eq5-troque-em-producao}
+  IDENTIDADE_URL: ${IDENTIDADE_URL:-http://mock-identidade:8001}
+  SMTP_HOST: mailpit
+  SMTP_PORTA: "1025"
+  OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+services:
+  db-notificacoes:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: notificacoes
+      POSTGRES_PASSWORD: notificacoes
+      POSTGRES_DB: notificacoes
+    volumes:
+      - dados-notificacoes:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notificacoes -d notificacoes"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-notificacoes:
+    <<: *imagem-notificacoes
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-notificacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      db-notificacoes:
+        condition: service_healthy
+    restart: "no"
+
+  notificacoes:
+    <<: *imagem-notificacoes
+    environment: *ambiente-notificacoes
+    ports:
+      - "8014:8000"
+    depends_on:
+      migrate-notificacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notificacoes-worker:
+    <<: *imagem-notificacoes
+    command: ["notificacoes-worker"]
+    environment: *ambiente-notificacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-notificacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dados-notificacoes:

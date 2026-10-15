@@ -1,0 +1,16 @@
+# Contexto de build = raiz do repositório (workspace uv). Lista de permissão:
+# tudo é ignorado, exceto o necessário para instalar os pacotes.
+*
+!pyproject.toml
+!uv.lock
+!.python-version
+!libs/plataforma/pyproject.toml
+!libs/plataforma/src/
+!services/*/pyproject.toml
+!services/*/src/
+!services/*/alembic.ini
+!services/*/alembic/
+!mocks/pyproject.toml
+!mocks/src/
+**/__pycache__
+**/*.py[cod]

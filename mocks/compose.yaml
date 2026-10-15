@@ -1,0 +1,52 @@
+# Mocks das Equipes 1, 3 e 4 (profile "mocks"; incluído pelo compose.yaml da raiz).
+x-imagem-mocks: &imagem-mocks
+  image: financeiro-eq5/mocks:local
+  build:
+    context: ..
+    dockerfile: mocks/Dockerfile
+  profiles: ["mocks"]
+  environment:
+    LOG_FORMATO: ${LOG_FORMATO:-console}
+  restart: unless-stopped
+
+services:
+  mock-identidade:
+    <<: *imagem-mocks
+    command: ["uvicorn", "mocks_equipes.identidade:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/saude/vivo', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-pedidos:
+    <<: *imagem-mocks
+    command: ["uvicorn", "mocks_equipes.pedidos:app", "--host", "0.0.0.0", "--port", "8008"]
+    ports:
+      - "8008:8008"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/saude/vivo', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-logistica:
+    <<: *imagem-mocks
+    command: ["uvicorn", "mocks_equipes.logistica:app", "--host", "0.0.0.0", "--port", "8010"]
+    environment:
+      LOG_FORMATO: ${LOG_FORMATO:-console}
+      NOTIFICACOES_URL: http://notificacoes:8000
+      IDENTIDADE_URL: http://mock-identidade:8001
+      MOCK_LOGISTICA_PAPEL: ${MOCK_LOGISTICA_PAPEL:-entregador}
+    ports:
+      - "8010:8010"
+    depends_on:
+      mock-identidade:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/saude/vivo', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

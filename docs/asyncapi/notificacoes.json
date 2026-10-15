@@ -1,0 +1,23 @@
+{
+  "asyncapi": "3.0.0",
+  "channels": {},
+  "components": {
+    "messages": {},
+    "schemas": {}
+  },
+  "defaultContentType": "application/json",
+  "info": {
+    "title": "Notificações (eventos)",
+    "version": "0.1.0"
+  },
+  "operations": {},
+  "servers": {
+    "development": {
+      "description": "Eventos do serviço de Notificações (exchange financeiro.eventos).",
+      "host": "rabbitmq:5672",
+      "pathname": "/",
+      "protocol": "amqp",
+      "protocolVersion": "0.9.1"
+    }
+  }
+}
