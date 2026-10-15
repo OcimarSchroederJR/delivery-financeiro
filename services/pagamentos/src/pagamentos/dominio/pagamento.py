@@ -6,6 +6,12 @@ from enum import StrEnum
 from typing import Self
 from uuid import UUID
 
+from pagamentos.dominio.erros import (
+    PagamentoNaoEstornavel,
+    ValorDeEstornoInvalido,
+    ValorExcedeSaldoEstornavel,
+)
+
 LIMITE_ANTIFRAUDE_CENTAVOS = 500_000
 MOTIVO_ANTIFRAUDE = "analise_antifraude"
 MOTIVO_SALDO_INSUFICIENTE = "saldo_insuficiente"
@@ -131,3 +137,29 @@ class Pagamento:
         if self.status not in STATUS_ESTORNAVEIS:
             return 0
         return self.valor_centavos - self.valor_estornado_centavos
+
+    def estornar(
+        self, *, valor_centavos: int | None, motivo: str, estorno_id: UUID, agora: datetime
+    ) -> Estorno:
+        """Estorno parcial ou total. ``valor_centavos=None`` estorna o saldo inteiro."""
+        if self.status not in STATUS_ESTORNAVEIS:
+            raise PagamentoNaoEstornavel()
+        saldo = self.saldo_estornavel_centavos
+        valor = saldo if valor_centavos is None else valor_centavos
+        if valor <= 0:
+            raise ValorDeEstornoInvalido()
+        if valor > saldo:
+            raise ValorExcedeSaldoEstornavel(saldo)
+        estorno = Estorno(
+            id=estorno_id,
+            pagamento_id=self.id,
+            valor_centavos=valor,
+            motivo=motivo,
+            criado_em=agora,
+        )
+        self.estornos.append(estorno)
+        self.status = (
+            StatusPagamento.ESTORNADO if valor == saldo else StatusPagamento.PARCIALMENTE_ESTORNADO
+        )
+        self.atualizado_em = agora
+        return estorno
