@@ -7,7 +7,15 @@ from asgi_lifespan import LifespanManager
 from pydantic import SecretStr
 
 from avaliacoes.api import criar_app
+from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
 from avaliacoes.config import Config
+from avaliacoes.testes.fakes import (
+    BancoEmMemoria,
+    PagamentosFake,
+    PedidosFake,
+    RelogioFake,
+    fabrica_uow_em_memoria,
+)
 from plataforma.testes.fixtures import postgres_url, rabbitmq_url  # noqa: F401
 from plataforma.testes.migracoes import desfazer, migrar
 from plataforma.testes.tokens import SEGREDO_SERVICO_TESTE
@@ -46,3 +54,31 @@ def banco_migrado(postgres_url: str) -> Iterator[str]:  # noqa: F811
     migrar(ALEMBIC_INI, postgres_url)
     yield postgres_url
     desfazer(ALEMBIC_INI, postgres_url)
+
+
+# --- Fakes das portas (unidade e API) -----------------------------------------
+
+
+@pytest.fixture
+def banco() -> BancoEmMemoria:
+    return BancoEmMemoria()
+
+
+@pytest.fixture
+def uow(banco: BancoEmMemoria) -> FabricaUnidadeDeTrabalho:
+    return fabrica_uow_em_memoria(banco)
+
+
+@pytest.fixture
+def relogio() -> RelogioFake:
+    return RelogioFake()
+
+
+@pytest.fixture
+def pedidos() -> PedidosFake:
+    return PedidosFake()
+
+
+@pytest.fixture
+def pagamentos() -> PagamentosFake:
+    return PagamentosFake()
