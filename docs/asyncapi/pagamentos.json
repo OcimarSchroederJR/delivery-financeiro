@@ -1,19 +1,440 @@
 {
   "asyncapi": "3.0.0",
-  "channels": {},
+  "channels": {
+    "pagamento.aprovado": {
+      "address": "pagamento.aprovado",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Pagamento aprovado (cartão ou Pix).",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/pagamento.aprovado:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "pagamento.estornado": {
+      "address": "pagamento.estornado",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Estorno total ou parcial registrado (um evento por estorno).",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/pagamento.estornado:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "pagamento.recusado": {
+      "address": "pagamento.recusado",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Pagamento recusado pelo antifraude ou pelo gateway; a tentativa fica registrada.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/pagamento.recusado:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    }
+  },
   "components": {
-    "messages": {},
-    "schemas": {}
+    "messages": {
+      "pagamento.aprovado:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoPagamentoAprovado"
+        },
+        "title": "pagamento.aprovado:Message"
+      },
+      "pagamento.estornado:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoPagamentoEstornado"
+        },
+        "title": "pagamento.estornado:Message"
+      },
+      "pagamento.recusado:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoPagamentoRecusado"
+        },
+        "title": "pagamento.recusado:Message"
+      }
+    },
+    "schemas": {
+      "DadosPagamentoAprovado": {
+        "properties": {
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "metodo": {
+            "$ref": "#/components/schemas/MetodoPagamento"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pagamento_id",
+          "pedido_id",
+          "cliente_id",
+          "valor_centavos",
+          "metodo"
+        ],
+        "title": "DadosPagamentoAprovado",
+        "type": "object"
+      },
+      "DadosPagamentoEstornado": {
+        "properties": {
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "estorno_id": {
+            "format": "uuid",
+            "title": "Estorno Id",
+            "type": "string"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "description": "Valor deste estorno (não o total do pagamento).",
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pagamento_id",
+          "estorno_id",
+          "pedido_id",
+          "cliente_id",
+          "valor_centavos",
+          "motivo"
+        ],
+        "title": "DadosPagamentoEstornado",
+        "type": "object"
+      },
+      "DadosPagamentoRecusado": {
+        "properties": {
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "motivo": {
+            "examples": [
+              "analise_antifraude",
+              "saldo_insuficiente"
+            ],
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pagamento_id",
+          "pedido_id",
+          "cliente_id",
+          "valor_centavos",
+          "motivo"
+        ],
+        "title": "DadosPagamentoRecusado",
+        "type": "object"
+      },
+      "EventoPagamentoAprovado": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosPagamentoAprovado"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "pagamento.aprovado",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoPagamentoAprovado",
+        "type": "object"
+      },
+      "EventoPagamentoEstornado": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosPagamentoEstornado"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "pagamento.estornado",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoPagamentoEstornado",
+        "type": "object"
+      },
+      "EventoPagamentoRecusado": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosPagamentoRecusado"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "pagamento.recusado",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoPagamentoRecusado",
+        "type": "object"
+      },
+      "MetodoPagamento": {
+        "enum": [
+          "cartao_credito",
+          "pix"
+        ],
+        "title": "MetodoPagamento",
+        "type": "string"
+      }
+    }
   },
   "defaultContentType": "application/json",
   "info": {
     "title": "Pagamentos (eventos)",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
-  "operations": {},
+  "operations": {
+    "pagamento.aprovado": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "pagamento.aprovado"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/pagamento.aprovado"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/pagamento.aprovado/messages/Message"
+        }
+      ]
+    },
+    "pagamento.estornado": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "pagamento.estornado"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/pagamento.estornado"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/pagamento.estornado/messages/Message"
+        }
+      ]
+    },
+    "pagamento.recusado": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "pagamento.recusado"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/pagamento.recusado"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/pagamento.recusado/messages/Message"
+        }
+      ]
+    }
+  },
   "servers": {
     "development": {
-      "description": "Eventos do serviço de Pagamentos (exchange financeiro.eventos).",
+      "description": "Eventos do serviço de Pagamentos (exchange financeiro.eventos; routing key = tipo).",
       "host": "rabbitmq:5672",
       "pathname": "/",
       "protocol": "amqp",
