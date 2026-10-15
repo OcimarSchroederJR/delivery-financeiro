@@ -1,6 +1,489 @@
 {
+  "components": {
+    "schemas": {
+      "AssinaturaCriada": {
+        "properties": {
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "criado_por": {
+            "title": "Criado Por",
+            "type": "string"
+          },
+          "eventos": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eventos",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "segredo": {
+            "description": "Exibido só nesta resposta. Use-o para validar o header X-Assinatura: sha256=HMAC-SHA256(segredo, \"<X-Assinatura-Timestamp>.<corpo>\").",
+            "title": "Segredo",
+            "type": "string"
+          },
+          "somente_proprios": {
+            "description": "Assinaturas de não-admin só recebem eventos cujo cliente_id, restaurante_id ou entregador_id seja o próprio usuário.",
+            "title": "Somente Proprios",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "eventos",
+          "ativa",
+          "criado_por",
+          "somente_proprios",
+          "criado_em",
+          "segredo"
+        ],
+        "title": "AssinaturaCriada",
+        "type": "object"
+      },
+      "AssinaturaEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "eventos": {
+            "description": "Padrões no estilo AMQP: * casa um segmento; # casa zero ou mais.",
+            "examples": [
+              [
+                "pagamento.*",
+                "disputa.resolvida"
+              ]
+            ],
+            "items": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Eventos",
+            "type": "array"
+          },
+          "url": {
+            "examples": [
+              "https://minha-equipe.exemplo.com/webhooks/financeiro"
+            ],
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "eventos"
+        ],
+        "title": "AssinaturaEntrada",
+        "type": "object"
+      },
+      "AssinaturaSaida": {
+        "properties": {
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "criado_por": {
+            "title": "Criado Por",
+            "type": "string"
+          },
+          "eventos": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eventos",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "somente_proprios": {
+            "description": "Assinaturas de não-admin só recebem eventos cujo cliente_id, restaurante_id ou entregador_id seja o próprio usuário.",
+            "title": "Somente Proprios",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "eventos",
+          "ativa",
+          "criado_por",
+          "somente_proprios",
+          "criado_em"
+        ],
+        "title": "AssinaturaSaida",
+        "type": "object"
+      },
+      "CorpoErro": {
+        "additionalProperties": true,
+        "description": "Schema do corpo de erro (documentação OpenAPI).",
+        "properties": {
+          "codigo": {
+            "title": "Codigo",
+            "type": "string"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "erro": {
+            "default": true,
+            "title": "Erro",
+            "type": "boolean"
+          },
+          "mensagem": {
+            "title": "Mensagem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mensagem",
+          "codigo"
+        ],
+        "title": "CorpoErro",
+        "type": "object"
+      },
+      "EntregaSaida": {
+        "properties": {
+          "assinatura_id": {
+            "format": "uuid",
+            "title": "Assinatura Id",
+            "type": "string"
+          },
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "duracao_ms": {
+            "title": "Duracao Ms",
+            "type": "integer"
+          },
+          "erro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erro"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "status_http": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Http"
+          },
+          "tentativa": {
+            "title": "Tentativa",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "assinatura_id",
+          "mensagem_id",
+          "tentativa",
+          "status_http",
+          "duracao_ms",
+          "erro",
+          "criado_em"
+        ],
+        "title": "EntregaSaida",
+        "type": "object"
+      },
+      "EventoAceito": {
+        "properties": {
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "aceito",
+              "duplicado"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "status"
+        ],
+        "title": "EventoAceito",
+        "type": "object"
+      },
+      "NotificacaoSaida": {
+        "properties": {
+          "assinatura_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assinatura Id"
+          },
+          "canal": {
+            "enum": [
+              "email",
+              "webhook"
+            ],
+            "title": "Canal",
+            "type": "string"
+          },
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "destinatario_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destinatario Id"
+          },
+          "destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destino"
+          },
+          "enviada_em": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enviada Em"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mensagem_id_origem": {
+            "format": "uuid",
+            "title": "Mensagem Id Origem",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pendente",
+              "enviada",
+              "falhou"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tentativas": {
+            "title": "Tentativas",
+            "type": "integer"
+          },
+          "tipo_evento": {
+            "title": "Tipo Evento",
+            "type": "string"
+          },
+          "ultimo_erro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Erro"
+          }
+        },
+        "required": [
+          "id",
+          "mensagem_id_origem",
+          "tipo_evento",
+          "canal",
+          "destino",
+          "destinatario_id",
+          "assinatura_id",
+          "status",
+          "tentativas",
+          "ultimo_erro",
+          "criado_em",
+          "enviada_em"
+        ],
+        "title": "NotificacaoSaida",
+        "type": "object"
+      },
+      "Pagina_AssinaturaSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/AssinaturaSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[AssinaturaSaida]",
+        "type": "object"
+      },
+      "Pagina_EntregaSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/EntregaSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[EntregaSaida]",
+        "type": "object"
+      },
+      "Pagina_NotificacaoSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/NotificacaoSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[NotificacaoSaida]",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "JWT da Equipe 1 (ou token de serviço interno da Equipe 5).",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
   "info": {
-    "description": "Serviço de Notificações da Equipe 5 (Financeiro e Pós).",
+    "description": "Serviço de Notificações da Equipe 5 (Financeiro e Pós): recebe eventos de outras equipes em POST /v1/eventos, envia e-mails por template e entrega webhooks assinados com HMAC-SHA256 (retry 1 s, 5 s, 30 s, 2 min e 10 min; depois, DLQ).",
     "title": "Notificações",
     "version": "0.1.0"
   },
@@ -47,6 +530,543 @@
         "summary": "Liveness: o processo está de pé",
         "tags": [
           "saude"
+        ]
+      }
+    },
+    "/v1/eventos": {
+      "post": {
+        "description": "Valida o envelope, deduplica por mensagem_id e o publica em financeiro.eventos (routing key = tipo). Papéis: loja, entregador, admin.",
+        "operationId": "receber_evento_v1_eventos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "``tipo`` = ``entidade.fato_no_passado`` e é também a routing key.",
+                "properties": {
+                  "correlation_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "title": "Correlation Id",
+                    "type": "string"
+                  },
+                  "dados": {
+                    "additionalProperties": true,
+                    "title": "Dados",
+                    "type": "object"
+                  },
+                  "mensagem_id": {
+                    "format": "uuid",
+                    "title": "Mensagem Id",
+                    "type": "string"
+                  },
+                  "ocorrido_em": {
+                    "format": "date-time",
+                    "title": "Ocorrido Em",
+                    "type": "string"
+                  },
+                  "tipo": {
+                    "maxLength": 100,
+                    "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+                    "title": "Tipo",
+                    "type": "string"
+                  },
+                  "versao": {
+                    "default": 1,
+                    "minimum": 1.0,
+                    "title": "Versao",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "mensagem_id",
+                  "tipo",
+                  "ocorrido_em",
+                  "correlation_id"
+                ],
+                "title": "EnvelopeEvento",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventoAceito"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Recebe um evento de outra equipe (ex.: pedido.*, entrega.*)",
+        "tags": [
+          "eventos"
+        ]
+      }
+    },
+    "/v1/notificacoes": {
+      "get": {
+        "operationId": "listar_notificacoes_do_usuario_v1_notificacoes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "destinatario_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Destinatario Id"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_NotificacaoSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista notificações (não-admin só vê as próprias)",
+        "tags": [
+          "notificacoes"
+        ]
+      }
+    },
+    "/v1/webhooks": {
+      "get": {
+        "operationId": "listar_webhooks_v1_webhooks_get",
+        "parameters": [
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_AssinaturaSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista as assinaturas ativas (admin vê todas)",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "post": {
+        "operationId": "criar_webhook_v1_webhooks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssinaturaEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssinaturaCriada"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cria uma assinatura de webhook (o segredo só aparece nesta resposta)",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/v1/webhooks/{assinatura_id}": {
+      "delete": {
+        "operationId": "remover_webhook_v1_webhooks__assinatura_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assinatura_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assinatura Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove (desativa) uma assinatura",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/v1/webhooks/{assinatura_id}/entregas": {
+      "get": {
+        "operationId": "listar_entregas_do_webhook_v1_webhooks__assinatura_id__entregas_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assinatura_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assinatura Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_EntregaSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista as tentativas de entrega de uma assinatura",
+        "tags": [
+          "webhooks"
         ]
       }
     }
