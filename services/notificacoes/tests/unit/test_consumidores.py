@@ -1,10 +1,16 @@
 import json
 import uuid
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
 from notificacoes.adaptadores.mensageria.consumidores import tratar_evento, tratar_tarefa
-from notificacoes.adaptadores.mensageria.topologia import FILA_WEBHOOKS
+from notificacoes.adaptadores.mensageria.topologia import (
+    FILA_EVENTOS,
+    FILA_WEBHOOKS,
+    HEADER_FALHAS_INESPERADAS,
+)
 from notificacoes.aplicacao.tarefas import TIPO_TAREFA_WEBHOOK, Desfecho, Tarefa
 from plataforma.correlation import obter_correlation_id
 from plataforma.envelope import EnvelopeEvento
@@ -28,15 +34,21 @@ class EncaminhadorFalso:
     def __init__(self, registro: list[str], *, falhar: bool = False) -> None:
         self.registro = registro
         self.falhar = falhar
+        self.cabecalhos: dict[str, Any] = {}
 
-    async def reagendar(self, fila: str, numero: int, corpo: bytes, cabecalhos: object) -> None:
+    async def reagendar(
+        self, fila: str, numero: int, corpo: bytes, cabecalhos: Mapping[str, Any]
+    ) -> None:
         if self.falhar:
             raise ConnectionError("broker fora")
+        self.cabecalhos = dict(cabecalhos)
         self.registro.append(f"reagendar({fila},{numero})")
 
     async def enviar_para_dlq(
-        self, fila: str, corpo: bytes, cabecalhos: object, motivo: str
+        self, fila: str, corpo: bytes, cabecalhos: Mapping[str, Any], motivo: str
     ) -> None:
+        if self.falhar:
+            raise ConnectionError("broker fora")
         self.registro.append(f"dlq({fila},{motivo})")
 
 
@@ -47,13 +59,31 @@ CORPO_TAREFA = json.dumps(
 ).encode()
 
 
+async def _evento(
+    corpo: bytes,
+    cabecalhos: Mapping[str, Any],
+    registro: list[str],
+    processar: Any,
+    encaminhador: "EncaminhadorFalso | None" = None,
+) -> None:
+    await tratar_evento(
+        corpo,
+        cabecalhos,
+        ConfirmacaoFalsa(registro),
+        processar,
+        encaminhador or EncaminhadorFalso(registro),
+        max_falhas=5,
+        pausa_em_erro=0,
+    )
+
+
 async def test_evento_processado_e_confirmado_depois() -> None:
     registro: list[str] = []
 
     async def processar(envelope: EnvelopeEvento) -> None:
         registro.append(f"processado:{envelope.tipo}:{obter_correlation_id()}")
 
-    await tratar_evento(CORPO_EVENTO, {}, ConfirmacaoFalsa(registro), processar, pausa_em_erro=0)
+    await _evento(CORPO_EVENTO, {}, registro, processar)
     assert registro == ["processado:pagamento.aprovado:cid-9", "ack"]
 
 
@@ -64,18 +94,62 @@ async def test_evento_invalido_vai_para_dlq(corpo: bytes) -> None:
     async def processar(envelope: EnvelopeEvento) -> None:
         registro.append("nao devia processar")
 
-    await tratar_evento(corpo, {}, ConfirmacaoFalsa(registro), processar, pausa_em_erro=0)
+    await _evento(corpo, {}, registro, processar)
     assert registro == ["reject(requeue=False)"]
 
 
-async def test_excecao_inesperada_faz_nack_com_requeue() -> None:
+async def _quebra(_entrada: object) -> Desfecho:
+    raise RuntimeError("banco fora")
+
+
+async def test_excecao_inesperada_reagenda_com_contador_em_vez_de_requeue() -> None:
     registro: list[str] = []
+    encaminhador = EncaminhadorFalso(registro)
+    await _evento(CORPO_EVENTO, {"X-Correlation-ID": "cid-9"}, registro, _quebra, encaminhador)
+    assert registro == [f"reagendar({FILA_EVENTOS},1)", "ack"]
+    assert encaminhador.cabecalhos[HEADER_FALHAS_INESPERADAS] == 1
 
-    async def processar(envelope: EnvelopeEvento) -> None:
-        raise RuntimeError("banco fora")
 
-    await tratar_evento(CORPO_EVENTO, {}, ConfirmacaoFalsa(registro), processar, pausa_em_erro=0)
+async def test_excecao_inesperada_soma_ao_contador_recebido() -> None:
+    registro: list[str] = []
+    encaminhador = EncaminhadorFalso(registro)
+    await _evento(CORPO_EVENTO, {HEADER_FALHAS_INESPERADAS: 3}, registro, _quebra, encaminhador)
+    assert registro == [f"reagendar({FILA_EVENTOS},4)", "ack"]
+    assert encaminhador.cabecalhos[HEADER_FALHAS_INESPERADAS] == 4
+
+
+async def test_excecao_inesperada_depois_do_limite_vai_para_dlq() -> None:
+    registro: list[str] = []
+    await _evento(CORPO_EVENTO, {HEADER_FALHAS_INESPERADAS: 5}, registro, _quebra)
+    assert registro == [
+        f"dlq({FILA_EVENTOS},Falha inesperada repetida 6 vezes: RuntimeError)",
+        "ack",
+    ]
+
+
+async def test_broker_fora_ao_reagendar_apos_excecao_faz_nack() -> None:
+    registro: list[str] = []
+    await _evento(CORPO_EVENTO, {}, registro, _quebra, EncaminhadorFalso(registro, falhar=True))
     assert registro == ["nack(requeue=True)"]
+
+
+async def test_tarefa_com_excecao_inesperada_reagenda_e_depois_vai_para_dlq() -> None:
+    for recebidas, esperado in (
+        (0, f"reagendar({FILA_WEBHOOKS},1)"),
+        (5, f"dlq({FILA_WEBHOOKS},Falha inesperada repetida 6 vezes: RuntimeError)"),
+    ):
+        registro: list[str] = []
+        await tratar_tarefa(
+            CORPO_TAREFA,
+            {HEADER_FALHAS_INESPERADAS: recebidas},
+            ConfirmacaoFalsa(registro),
+            _quebra,
+            EncaminhadorFalso(registro),
+            fila=FILA_WEBHOOKS,
+            max_falhas=5,
+            pausa_em_erro=0,
+        )
+        assert registro == [esperado, "ack"]
 
 
 async def _tratar(desfecho: Desfecho, *, falhar_encaminhador: bool = False) -> list[str]:
@@ -92,6 +166,7 @@ async def _tratar(desfecho: Desfecho, *, falhar_encaminhador: bool = False) -> l
         processar,
         EncaminhadorFalso(registro, falhar=falhar_encaminhador),
         fila=FILA_WEBHOOKS,
+        max_falhas=5,
         pausa_em_erro=0,
     )
     return registro
@@ -138,6 +213,7 @@ async def test_tarefa_malformada_e_rejeitada() -> None:
         processar,
         EncaminhadorFalso(registro),
         fila=FILA_WEBHOOKS,
+        max_falhas=5,
         pausa_em_erro=0,
     )
     assert registro == ["reject(requeue=False)"]

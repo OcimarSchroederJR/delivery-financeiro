@@ -44,7 +44,11 @@ FILAS_DO_SERVICO = (
     FILA_EMAILS,
     FILA_WEBHOOKS,
     FILA_DLQ,
-    *(nome_fila_retry(fila, n) for fila in (FILA_EMAILS, FILA_WEBHOOKS) for n in range(1, 11)),
+    *(
+        nome_fila_retry(fila, n)
+        for fila in (FILA_EVENTOS, FILA_EMAILS, FILA_WEBHOOKS)
+        for n in range(1, 11)
+    ),
 )
 
 Condicao = Callable[[], Awaitable[bool]]

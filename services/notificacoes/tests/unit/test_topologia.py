@@ -3,6 +3,7 @@ from notificacoes.adaptadores.mensageria.topologia import (
     FILA_EMAILS,
     FILA_EVENTOS,
     FILA_WEBHOOKS,
+    FILAS_COM_RETRY,
     FILAS_DE_TAREFA,
     fila_de_tarefas,
     fila_dlq,
@@ -49,3 +50,10 @@ def test_filas_de_retry_com_ttl_e_retorno_para_a_principal() -> None:
         assert fila.durable is True
         assert fila.arguments["x-dead-letter-exchange"] == ""
         assert fila.arguments["x-dead-letter-routing-key"] == FILA_WEBHOOKS
+
+
+def test_fila_de_eventos_tambem_tem_retry_para_falha_inesperada() -> None:
+    assert FILAS_COM_RETRY == (FILA_EVENTOS, FILA_EMAILS, FILA_WEBHOOKS)
+    [primeira, *_] = filas_retry(FILA_EVENTOS, (100,))
+    assert primeira.name == "notificacoes.eventos.retry.1"
+    assert primeira.arguments["x-dead-letter-routing-key"] == FILA_EVENTOS
