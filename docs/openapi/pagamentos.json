@@ -114,6 +114,116 @@
         "title": "CriarPagamentoEntrada",
         "type": "object"
       },
+      "EstornarEntrada": {
+        "additionalProperties": false,
+        "description": "Sem ``valor_centavos``, estorna o saldo estornável inteiro.",
+        "properties": {
+          "motivo": {
+            "examples": [
+              "disputa procedente"
+            ],
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Motivo",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              1000
+            ],
+            "title": "Valor Centavos"
+          }
+        },
+        "required": [
+          "motivo"
+        ],
+        "title": "EstornarEntrada",
+        "type": "object"
+      },
+      "EstornoCriadoSaida": {
+        "description": "Corpo do 201 do estorno. ``status`` é o status do pagamento após este estorno.",
+        "properties": {
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusPagamento"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "pagamento_id",
+          "valor_centavos",
+          "motivo",
+          "criado_em",
+          "status"
+        ],
+        "title": "EstornoCriadoSaida",
+        "type": "object"
+      },
+      "EstornoSaida": {
+        "properties": {
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "pagamento_id",
+          "valor_centavos",
+          "motivo",
+          "criado_em"
+        ],
+        "title": "EstornoSaida",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -214,6 +324,37 @@
           "atualizado_em"
         ],
         "title": "PagamentoSaida",
+        "type": "object"
+      },
+      "Pagina_EstornoSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/EstornoSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[EstornoSaida]",
         "type": "object"
       },
       "Pagina_PagamentoSaida_": {
@@ -646,6 +787,234 @@
           }
         ],
         "summary": "Detalha um pagamento",
+        "tags": [
+          "pagamentos"
+        ]
+      }
+    },
+    "/v1/pagamentos/{pagamento_id}/estornos": {
+      "get": {
+        "operationId": "listar_estornos_v1_pagamentos__pagamento_id__estornos_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_EstornoSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista os estornos de um pagamento",
+        "tags": [
+          "pagamentos"
+        ]
+      },
+      "post": {
+        "description": "Sem `valor_centavos`, estorna o saldo estornável inteiro. Aceita token de serviço (saga de disputa de Avaliações). A mesma Idempotency-Key devolve o estorno gravado.",
+        "operationId": "estornar_pagamento_v1_pagamentos__pagamento_id__estornos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Obrigatório. Chave única da operação (1 a 255 caracteres ASCII visíveis), válida por 24 h.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Obrigatório. Chave única da operação (1 a 255 caracteres ASCII visíveis), válida por 24 h.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstornarEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstornoCriadoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Estorna total ou parcialmente um pagamento",
         "tags": [
           "pagamentos"
         ]

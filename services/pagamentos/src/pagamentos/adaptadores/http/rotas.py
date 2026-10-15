@@ -12,13 +12,18 @@ from pagamentos.adaptadores.http.dependencias import (
     ClienteOuAdmin,
     IdempotencyKey,
     LeitorDaLista,
+    QuemEstorna,
     para_solicitante,
 )
 from pagamentos.adaptadores.http.esquemas import (
     PADRAO_ID_EXTERNO,
     CriarPagamentoEntrada,
+    EstornarEntrada,
+    EstornoCriadoSaida,
+    EstornoSaida,
     PagamentoSaida,
 )
+from pagamentos.aplicacao.estornar_pagamento import ComandoEstornar, ResultadoEstorno
 from pagamentos.aplicacao.idempotencia import ReservaIdempotencia, RespostaGravada
 from pagamentos.dominio.erros import PagamentoNaoEncontrado
 from pagamentos.dominio.pagamento import Pagamento
@@ -109,3 +114,62 @@ async def obter_pagamento(
 ) -> PagamentoSaida:
     pagamento = await casos.consultas.obter(_uuid_ou_404(pagamento_id), para_solicitante(usuario))
     return PagamentoSaida.de_dominio(pagamento)
+
+
+def _escopo_estorno(pagamento_id: UUID) -> str:
+    return f"POST /v1/pagamentos/{pagamento_id}/estornos"
+
+
+@router.post(
+    "/{pagamento_id}/estornos",
+    status_code=201,
+    response_model=EstornoCriadoSaida,
+    responses=respostas_erro(400, 401, 403, 404, 409, 422),
+    summary="Estorna total ou parcialmente um pagamento",
+    description=(
+        "Sem `valor_centavos`, estorna o saldo estornável inteiro. Aceita token de serviço "
+        "(saga de disputa de Avaliações). A mesma Idempotency-Key devolve o estorno gravado."
+    ),
+)
+async def estornar_pagamento(
+    pagamento_id: str,
+    corpo: EstornarEntrada,
+    usuario: QuemEstorna,
+    casos: CasosDeUsoDep,
+    idempotency_key: IdempotencyKey = None,
+) -> JSONResponse:
+    identificador = _uuid_ou_404(pagamento_id)
+    comando = ComandoEstornar(
+        pagamento_id=identificador, motivo=corpo.motivo, valor_centavos=corpo.valor_centavos
+    )
+
+    async def operar(reserva: ReservaIdempotencia) -> ResultadoEstorno:
+        return await casos.estornar_pagamento.executar(comando, reserva)
+
+    resultado = await casos.idempotencia.executar(
+        chave=idempotency_key,
+        escopo=_escopo_estorno(identificador),
+        dados={"corpo": corpo.dados_idempotencia()},
+        operacao=operar,
+    )
+    if isinstance(resultado, RespostaGravada):
+        return _json(resultado.status, resultado.corpo, repetida=True)
+    return _json(201, casos.apresentador.estorno(resultado.estorno, resultado.status_pagamento))
+
+
+@router.get(
+    "/{pagamento_id}/estornos",
+    response_model=Pagina[EstornoSaida],
+    responses=respostas_erro(401, 403, 404, 422),
+    summary="Lista os estornos de um pagamento",
+)
+async def listar_estornos(
+    pagamento_id: str, usuario: ClienteOuAdmin, casos: CasosDeUsoDep, paginacao: Paginacao
+) -> Pagina[EstornoSaida]:
+    estornos = await casos.consultas.listar_estornos(
+        _uuid_ou_404(pagamento_id), para_solicitante(usuario)
+    )
+    fatia = estornos[paginacao.deslocamento : paginacao.deslocamento + paginacao.tamanho]
+    return Pagina[EstornoSaida].criar(
+        [EstornoSaida.de_dominio(e) for e in fatia], paginacao, len(estornos)
+    )
