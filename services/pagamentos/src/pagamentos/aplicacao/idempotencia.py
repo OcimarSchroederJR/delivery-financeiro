@@ -11,11 +11,13 @@
 
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from pagamentos.aplicacao.portas import Apresentador, FabricaUnidadeDeTrabalho, Relogio
 from pagamentos.dominio.erros import IdempotencyEmProcessamento, IdempotencyKeyReutilizada
 from pagamentos.dominio.idempotencia import (
+    VALIDADE,
     Decisao,
     RegistroIdempotencia,
     calcular_hash,
@@ -137,3 +139,13 @@ class ExecutorIdempotente:
             _log.warning(
                 "idempotencia_liberacao_falhou", escopo=reserva.escopo, chave=reserva.chave
             )
+
+
+async def remover_chaves_expiradas(
+    fabrica_uow: FabricaUnidadeDeTrabalho, *, agora: datetime
+) -> int:
+    """Apaga as chaves com mais de 24 h (``VALIDADE``). Usado pelo worker."""
+    async with fabrica_uow() as uow:
+        removidas = await uow.chaves_idempotencia.remover_expiradas(agora - VALIDADE)
+        await uow.commit()
+    return removidas
