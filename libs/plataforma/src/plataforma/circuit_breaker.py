@@ -94,6 +94,7 @@ class CircuitBreaker:
     ) -> T:
         """Executa ``operacao`` sob o circuito. Exceções para as quais ``e_falha``
         retorna False contam como sucesso da dependência (ex.: respostas 4xx)."""
+        chamada_de_teste = self.estado is EstadoCircuito.MEIO_ABERTO
         self.antes_da_chamada()
         try:
             resultado = await operacao()
@@ -104,7 +105,9 @@ class CircuitBreaker:
                 self.registrar_sucesso()
             raise
         except BaseException:
-            self._teste_em_andamento = False
+            # Cancelamento: só libera a vaga de teste se ESTA era a chamada de teste.
+            if chamada_de_teste:
+                self._teste_em_andamento = False
             raise
         self.registrar_sucesso()
         return resultado

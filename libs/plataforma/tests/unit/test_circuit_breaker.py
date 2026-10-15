@@ -119,3 +119,29 @@ async def test_excecao_que_nao_e_falha_conta_como_sucesso(breaker: CircuitBreake
         await breaker.executar(nao_encontrado, e_falha=lambda _erro: False)
     await _abrir(breaker, 4)
     assert breaker.estado is EstadoCircuito.FECHADO
+
+
+async def test_cancelar_chamada_antiga_nao_libera_segunda_chamada_de_teste(
+    breaker: CircuitBreaker, relogio: Relogio
+) -> None:
+    async def eterna() -> str:
+        await asyncio.Event().wait()
+        return "nunca"
+
+    antiga = asyncio.create_task(breaker.executar(eterna))  # começou com o circuito FECHADO
+    await asyncio.sleep(0)
+    await _abrir(breaker)
+    relogio.agora += 30
+    teste = asyncio.create_task(breaker.executar(eterna))  # a chamada de teste do meio-aberto
+    await asyncio.sleep(0)
+
+    antiga.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await antiga
+    with pytest.raises(CircuitoAberto):
+        await breaker.executar(_ok)
+
+    teste.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await teste
+    assert await breaker.executar(_ok) == "ok"
