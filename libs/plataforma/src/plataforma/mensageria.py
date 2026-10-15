@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from faststream.rabbit import ExchangeType, RabbitBroker, RabbitExchange
+from faststream.rabbit import Channel, ExchangeType, RabbitBroker, RabbitExchange
 from faststream.rabbit.opentelemetry import RabbitTelemetryMiddleware
 
 from plataforma.correlation import HEADER_CORRELATION_ID
@@ -14,8 +14,13 @@ URL_BROKER_ESPECIFICACAO = "amqp://rabbitmq:5672/"
 
 
 def criar_broker(url: str, *, telemetria: bool = False, **opcoes: Any) -> RabbitBroker:
-    """Broker FastStream. Com ``telemetria=True``, propaga trace pelos headers AMQP."""
+    """Broker FastStream. Com ``telemetria=True``, propaga trace pelos headers AMQP.
+
+    O canal padrão usa publisher confirms e ``on_return_raises``: uma mensagem
+    ``mandatory`` sem fila ligada levanta ``DeliveryError`` em vez de sumir.
+    """
     middlewares = (RabbitTelemetryMiddleware(),) if telemetria else ()
+    opcoes.setdefault("default_channel", Channel(publisher_confirms=True, on_return_raises=True))
     return RabbitBroker(url, middlewares=middlewares, **opcoes)
 
 
@@ -50,6 +55,7 @@ class PublicadorRabbit:
             correlation_id=envelope.correlation_id,
             headers={HEADER_CORRELATION_ID: envelope.correlation_id},
             persist=True,
+            mandatory=True,
         )
 
     async def encerrar(self) -> None:
