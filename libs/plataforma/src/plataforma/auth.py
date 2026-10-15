@@ -127,6 +127,11 @@ class VerificadorJwks:
             if chave is None and self._pode_recarregar():
                 await self._recarregar()
                 chave = self._procurar(kid)
+            sem_chaves = self._chaves is None
+        if sem_chaves:
+            # Nunca obtivemos o JWKS (Eq. 1 fora desde o boot): é indisponibilidade,
+            # não token inválido. Vale também durante o intervalo mínimo de recarga.
+            raise ErroDependenciaIndisponivel("identidade")
         if chave is None:
             raise ErroNaoAutenticado("Chave de assinatura desconhecida.")
         return chave

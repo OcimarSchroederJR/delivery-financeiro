@@ -138,6 +138,22 @@ async def test_eq1_fora_usa_ultima_chave_conhecida_sem_martelar(
     assert servidor.chamadas == 2  # uma recarga falha; as próximas esperam o intervalo mínimo
 
 
+async def test_eq1_fora_no_boot_continua_503_ate_recuperar(
+    gerador: GeradorDeTokens, servidor: ServidorJwks
+) -> None:
+    relogio = Relogio()
+    verificador = _verificador(servidor, relogio)
+    servidor.fora = True
+    for _ in range(3):
+        with pytest.raises(ErroDependenciaIndisponivel):
+            await verificador.verificar(gerador.emitir("x", "cliente"))
+        relogio.agora += 1  # dentro do intervalo mínimo de recarga
+    assert servidor.chamadas == 1
+    servidor.fora = False
+    relogio.agora += 10
+    assert (await verificador.verificar(gerador.emitir("x", "cliente"))).id == "x"
+
+
 async def test_eq1_fora_sem_cache_vira_503(
     gerador: GeradorDeTokens, servidor: ServidorJwks
 ) -> None:
