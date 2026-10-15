@@ -167,4 +167,9 @@ class DecidirDisputa:
             disputa_id=str(disputa.id),
             valor_aprovado_centavos=disputa.valor_aprovado_centavos,
         )
-        return await self._saga.tentar(disputa_id)
+        try:
+            return await self._saga.tentar(disputa_id)
+        except Exception:
+            # A decisão já está gravada (estorno_pendente): o worker conclui depois (202).
+            _log.exception("estorno_sincrono_falhou", disputa_id=str(disputa_id))
+            return disputa

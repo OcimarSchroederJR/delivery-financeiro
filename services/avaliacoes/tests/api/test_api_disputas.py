@@ -218,3 +218,19 @@ async def test_patch_regras(
     assert (de_novo.status_code, de_novo.json()["codigo"]) == (409, "TRANSICAO_INVALIDA")
     inexistente = await _decidir(api, token_admin, str(uuid.uuid4()), status="procedente")
     assert inexistente.status_code == 404
+
+
+async def test_patch_com_erro_inesperado_na_saga_responde_202(
+    api: httpx.AsyncClient,
+    token_admin: str,
+    disputa_id: str,
+    pagamentos: PagamentosFake,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def quebrar(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("bug no adaptador")
+
+    monkeypatch.setattr(pagamentos, "estornar", quebrar)
+    resposta = await _decidir(api, token_admin, disputa_id, status="procedente")
+    assert resposta.status_code == 202
+    assert resposta.json()["status"] == "estorno_pendente"

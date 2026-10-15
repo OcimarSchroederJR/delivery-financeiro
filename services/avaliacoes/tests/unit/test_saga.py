@@ -306,3 +306,22 @@ async def test_falha_definitiva_na_ultima_tentativa_mantem_o_codigo_da_recusa(
         "PAGAMENTO_NAO_ESTORNAVEL",
     )
     assert banco.eventos[-1][1]["motivo"] == "PAGAMENTO_NAO_ESTORNAVEL"
+
+
+async def test_erro_inesperado_na_saga_mantem_pendente_para_o_worker(
+    uow: FabricaUnidadeDeTrabalho,
+    disputa: Disputa,
+    banco: BancoEmMemoria,
+    relogio: RelogioFake,
+) -> None:
+    """A decisão já foi gravada: o erro não pode virar 500 (o PATCH repetido daria 409)."""
+
+    class PagamentosQueQuebra(PagamentosFake):
+        async def estornar(self, pagamento_id: str, **kwargs: object) -> EstornoRealizado:
+            raise RuntimeError("bug no adaptador")
+
+    saga = SagaEstorno(uow, PagamentosQueQuebra(), EmissorTokenFake(), relogio=relogio)
+    resultado = await DecidirDisputa(uow, saga, relogio=relogio).executar(disputa.id, PROCEDENTE)
+    assert resultado.status is StatusDisputa.ESTORNO_PENDENTE
+    assert banco.disputas[disputa.id].status is StatusDisputa.ESTORNO_PENDENTE
+    assert banco.disputas[disputa.id].proxima_tentativa_em == relogio.agora + timedelta(seconds=30)
