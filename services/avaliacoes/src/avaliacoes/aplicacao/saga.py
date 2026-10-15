@@ -4,7 +4,9 @@
 2. ``POST /v1/pagamentos/{id}/estornos`` com ``Idempotency-Key: disputa-{id}``;
 3. sucesso → ``resolvida`` + ``disputa.resolvida``;
 4. falha transitória → continua pendente; o worker repete com backoff (até o limite);
-5. falha definitiva ou tentativas esgotadas → ``estorno_falhou`` + ``disputa.estorno_falhou``.
+5. falha definitiva → ``estorno_falhou`` com o código da recusa; tentativas esgotadas com a
+   última falha transitória → ``estorno_falhou`` com ``RESULTADO_INCERTO`` (conferir em
+   Pagamentos); ambos publicam ``disputa.estorno_falhou``.
 """
 
 import uuid
@@ -35,7 +37,9 @@ from plataforma.tempo import agora_utc
 
 _log = obter_logger(__name__)
 
-MOTIVO_TENTATIVAS_ESGOTADAS = "TENTATIVAS_ESGOTADAS"
+# Tentativas esgotadas com a última falha transitória (timeout, 5xx, chave em processamento):
+# o estorno pode ter sido feito em Pagamentos; o admin confere lá antes de agir.
+MOTIVO_RESULTADO_INCERTO = "RESULTADO_INCERTO"
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +118,7 @@ class SagaEstorno:
                         DISPUTA_ESTORNO_FALHOU, dados_disputa_estorno_falhou(disputa)
                     )
                 case FalhaTransitoria() if self.politica.esgotou(disputa.tentativas_estorno):
-                    disputa.falhar_estorno(motivo=MOTIVO_TENTATIVAS_ESGOTADAS, agora=agora)
+                    disputa.falhar_estorno(motivo=MOTIVO_RESULTADO_INCERTO, agora=agora)
                     uow.registrar_evento(
                         DISPUTA_ESTORNO_FALHOU, dados_disputa_estorno_falhou(disputa)
                     )

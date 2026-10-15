@@ -74,3 +74,8 @@ def test_asyncapi_tem_os_quatro_canais_no_exchange_de_eventos() -> None:
     assert set(especificacao["channels"]) == set(EVENTOS)
     for canal in especificacao["channels"].values():
         assert canal["bindings"]["amqp"]["exchange"]["name"] == "financeiro.eventos"
+
+
+def test_asyncapi_explica_os_motivos_de_estorno_falhou() -> None:
+    texto = asyncapi_json(criar_broker_documentado(), titulo="Avaliações (eventos)", versao="0.1.0")
+    assert "RESULTADO_INCERTO" in texto

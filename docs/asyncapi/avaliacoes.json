@@ -237,6 +237,7 @@
             "type": "string"
           },
           "motivo": {
+            "description": "Código da recusa definitiva de Pagamentos (ex.: PAGAMENTO_NAO_ESTORNAVEL, VALOR_EXCEDE_SALDO_ESTORNAVEL, HTTP_404) ou RESULTADO_INCERTO quando as tentativas se esgotaram com falha transitória: o estorno pode ter sido feito; confira em Pagamentos antes de agir.",
             "title": "Motivo",
             "type": "string"
           },

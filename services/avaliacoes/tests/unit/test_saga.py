@@ -211,7 +211,7 @@ async def test_worker_conclui_depois_de_pagamentos_voltar(
     assert banco.tipos_de_eventos() == ["disputa.aberta", "disputa.resolvida"]
 
 
-async def test_tentativas_esgotadas_viram_estorno_falhou(
+async def test_tentativas_esgotadas_com_falha_transitoria_viram_resultado_incerto(
     decidir: DecidirDisputa,
     disputa: Disputa,
     pagamentos: PagamentosFake,
@@ -220,6 +220,7 @@ async def test_tentativas_esgotadas_viram_estorno_falhou(
     banco: BancoEmMemoria,
     relogio: RelogioFake,
 ) -> None:
+    """Timeout/5xx na última tentativa: o estorno pode ter sido feito em Pagamentos."""
     pagamentos.programar_estorno(*[FalhaTransitoria("DEPENDENCIA_INDISPONIVEL")] * 10)
     await decidir.executar(disputa.id, PROCEDENTE)
     retentativa = RetentativaDeEstornos(uow, saga, relogio=relogio)
@@ -229,8 +230,11 @@ async def test_tentativas_esgotadas_viram_estorno_falhou(
     final = banco.disputas[disputa.id]
     assert final.status is StatusDisputa.ESTORNO_FALHOU
     assert final.tentativas_estorno == 10
-    assert final.motivo_falha_estorno == "TENTATIVAS_ESGOTADAS"
-    assert banco.tipos_de_eventos()[-1] == "disputa.estorno_falhou"
+    assert final.motivo_falha_estorno == "RESULTADO_INCERTO"
+    assert banco.eventos[-1] == (
+        "disputa.estorno_falhou",
+        {"disputa_id": str(disputa.id), "pedido_id": "ped-4", "motivo": "RESULTADO_INCERTO"},
+    )
     relogio.avancar(minutes=10)
     assert await retentativa.processar_lote() == 0
 
@@ -275,3 +279,30 @@ async def test_erro_inesperado_numa_disputa_nao_para_o_lote(
     )
     assert await retentativa.processar_lote() == 1
     assert banco.disputas[disputa.id].status is StatusDisputa.ESTORNO_PENDENTE
+
+
+async def test_falha_definitiva_na_ultima_tentativa_mantem_o_codigo_da_recusa(
+    decidir: DecidirDisputa,
+    disputa: Disputa,
+    pagamentos: PagamentosFake,
+    saga: SagaEstorno,
+    uow: FabricaUnidadeDeTrabalho,
+    banco: BancoEmMemoria,
+    relogio: RelogioFake,
+) -> None:
+    """Recusa definitiva é certa (nada foi estornado): não vira ``RESULTADO_INCERTO``."""
+    pagamentos.programar_estorno(
+        *[FalhaTransitoria("DEPENDENCIA_INDISPONIVEL")] * 9,
+        FalhaDefinitiva("PAGAMENTO_NAO_ESTORNAVEL"),
+    )
+    await decidir.executar(disputa.id, PROCEDENTE)
+    retentativa = RetentativaDeEstornos(uow, saga, relogio=relogio)
+    for _ in range(9):
+        relogio.avancar(minutes=10)
+        await retentativa.processar_lote()
+    final = banco.disputas[disputa.id]
+    assert (final.tentativas_estorno, final.motivo_falha_estorno) == (
+        10,
+        "PAGAMENTO_NAO_ESTORNAVEL",
+    )
+    assert banco.eventos[-1][1]["motivo"] == "PAGAMENTO_NAO_ESTORNAVEL"

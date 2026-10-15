@@ -9,7 +9,7 @@ import uuid
 from typing import Literal
 
 from faststream.rabbit import RabbitBroker
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from avaliacoes.aplicacao.eventos import (
     AVALIACAO_REGISTRADA,
@@ -50,7 +50,14 @@ class DadosDisputaResolvida(BaseModel):
 class DadosDisputaEstornoFalhou(BaseModel):
     disputa_id: uuid.UUID
     pedido_id: str
-    motivo: str
+    motivo: str = Field(
+        description=(
+            "Código da recusa definitiva de Pagamentos (ex.: PAGAMENTO_NAO_ESTORNAVEL, "
+            "VALOR_EXCEDE_SALDO_ESTORNAVEL, HTTP_404) ou RESULTADO_INCERTO quando as "
+            "tentativas se esgotaram com falha transitória: o estorno pode ter sido feito; "
+            "confira em Pagamentos antes de agir."
+        )
+    )
 
 
 class _Envelope(BaseModel):
