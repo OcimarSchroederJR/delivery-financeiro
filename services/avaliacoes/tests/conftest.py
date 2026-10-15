@@ -7,10 +7,26 @@ from asgi_lifespan import LifespanManager
 from pydantic import SecretStr
 
 from avaliacoes.api import criar_app
+from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
+from avaliacoes.aplicacao.saga import PoliticaDeRetentativa, SagaEstorno
+from avaliacoes.composicao import Dependencias
 from avaliacoes.config import Config
+from avaliacoes.testes.fakes import (
+    BancoEmMemoria,
+    EmissorTokenFake,
+    PagamentosFake,
+    PedidosFake,
+    RelogioFake,
+    fabrica_uow_em_memoria,
+)
+from plataforma.auth import EmissorTokenServico
 from plataforma.testes.fixtures import postgres_url, rabbitmq_url  # noqa: F401
 from plataforma.testes.migracoes import desfazer, migrar
-from plataforma.testes.tokens import SEGREDO_SERVICO_TESTE
+from plataforma.testes.tokens import (
+    SEGREDO_SERVICO_TESTE,
+    GeradorDeTokens,
+    criar_verificador_de_teste,
+)
 
 DIRETORIO_SERVICO = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = DIRETORIO_SERVICO / "alembic.ini"
@@ -46,3 +62,104 @@ def banco_migrado(postgres_url: str) -> Iterator[str]:  # noqa: F811
     migrar(ALEMBIC_INI, postgres_url)
     yield postgres_url
     desfazer(ALEMBIC_INI, postgres_url)
+
+
+# --- Fakes das portas (unidade e API) -----------------------------------------
+
+
+@pytest.fixture
+def banco() -> BancoEmMemoria:
+    return BancoEmMemoria()
+
+
+@pytest.fixture
+def uow(banco: BancoEmMemoria) -> FabricaUnidadeDeTrabalho:
+    return fabrica_uow_em_memoria(banco)
+
+
+@pytest.fixture
+def relogio() -> RelogioFake:
+    return RelogioFake()
+
+
+@pytest.fixture
+def pedidos() -> PedidosFake:
+    return PedidosFake()
+
+
+@pytest.fixture
+def pagamentos() -> PagamentosFake:
+    return PagamentosFake()
+
+
+@pytest.fixture
+def saga(
+    uow: FabricaUnidadeDeTrabalho, pagamentos: PagamentosFake, relogio: RelogioFake
+) -> SagaEstorno:
+    return SagaEstorno(
+        uow, pagamentos, EmissorTokenFake(), politica=PoliticaDeRetentativa(), relogio=relogio
+    )
+
+
+@pytest.fixture
+def dependencias(
+    uow: FabricaUnidadeDeTrabalho,
+    pedidos: PedidosFake,
+    pagamentos: PagamentosFake,
+    relogio: RelogioFake,
+) -> Dependencias:
+    return Dependencias(
+        uow=uow,
+        pedidos=pedidos,
+        pagamentos=pagamentos,
+        emissor_token=EmissorTokenFake(),
+        politica=PoliticaDeRetentativa(),
+        relogio=relogio,
+    )
+
+
+# --- Tokens e cliente HTTP da API com fakes ------------------------------------
+
+
+@pytest.fixture(scope="session")
+def gerador() -> GeradorDeTokens:
+    return GeradorDeTokens()
+
+
+@pytest.fixture
+def token_cliente(gerador: GeradorDeTokens) -> str:
+    return gerador.emitir("cliente-1", "cliente")
+
+
+@pytest.fixture
+def token_cliente_2(gerador: GeradorDeTokens) -> str:
+    return gerador.emitir("cliente-2", "cliente")
+
+
+@pytest.fixture
+def token_admin(gerador: GeradorDeTokens) -> str:
+    return gerador.emitir("admin-1", "admin")
+
+
+@pytest.fixture
+def token_loja(gerador: GeradorDeTokens) -> str:
+    return gerador.emitir("loja-1", "loja")
+
+
+@pytest.fixture
+def token_servico() -> str:
+    return EmissorTokenServico(SEGREDO_SERVICO_TESTE, servico="pagamentos").emitir()
+
+
+@pytest.fixture
+async def api(
+    config: Config, gerador: GeradorDeTokens, dependencias: Dependencias
+) -> AsyncIterator[httpx.AsyncClient]:
+    """Cliente HTTP do app com verificador de teste e portas fake."""
+    app = criar_app(
+        config, verificador=criar_verificador_de_teste(gerador), dependencias=dependencias
+    )
+    async with LifespanManager(app) as gerenciador:
+        transporte = httpx.ASGITransport(app=gerenciador.app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transporte, base_url="http://teste") as http:
+            yield http

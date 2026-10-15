@@ -36,7 +36,7 @@ async def test_migracoes_criam_outbox_e_batem_com_os_modelos(banco_migrado: str)
     async with engine.connect() as conexao:
         tabelas = await conexao.run_sync(lambda c: inspect(c).get_table_names())
     await engine.dispose()
-    assert "outbox" in tabelas
+    assert {"outbox", "avaliacoes", "disputas"} <= set(tabelas)
     assert await diferencas_modelo_banco(banco_migrado, Base.metadata) == []
 
 
