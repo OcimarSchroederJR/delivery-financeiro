@@ -5,6 +5,7 @@ templates são nossos; os valores nunca são reinterpretados). Campos
 ``*_centavos`` inteiros ganham um irmão ``*_reais`` já formatado.
 """
 
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -12,6 +13,7 @@ from typing import Any
 from notificacoes.dominio.erros import DadosDoEventoInsuficientes
 
 _SUFIXO_CENTAVOS = "_centavos"
+_QUEBRAS_E_CONTROLE = frozenset({"Cc", "Zl", "Zp"})
 _RODAPE = (
     "\n\n--\nEquipe 5 - Financeiro e Pós - Plataforma de Delivery\n"
     "Este é um e-mail automático; não responda."
@@ -66,9 +68,12 @@ class ModeloEmail:
 
     def renderizar(self, dados: Mapping[str, Any], *, nome: str) -> EmailRenderizado:
         campos = _campos(dados, nome)
-        return EmailRenderizado(
-            assunto=self.assunto.format_map(campos), corpo=self.corpo.format_map(campos)
-        )
+        assunto = self.assunto.format_map(campos)
+        if any(unicodedata.category(caractere) in _QUEBRAS_E_CONTROLE for caractere in assunto):
+            # Quebra de linha no Subject permitiria injetar cabeçalhos (e o
+            # EmailMessage recusa com ValueError): repetir não resolve.
+            raise DadosDoEventoInsuficientes("O assunto teria quebra de linha ou controle.")
+        return EmailRenderizado(assunto=assunto, corpo=self.corpo.format_map(campos))
 
 
 MODELOS: dict[str, ModeloEmail] = {

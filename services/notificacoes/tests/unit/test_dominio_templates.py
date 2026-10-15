@@ -144,3 +144,11 @@ def test_valor_com_chaves_nao_e_interpretado() -> None:
     assert modelo is not None
     dados = {**EXEMPLOS["pagamento.recusado"], "motivo": "{nome} {0}"}
     assert "Motivo: {nome} {0}." in modelo.renderizar(dados, nome="Ana").corpo
+
+
+@pytest.mark.parametrize("pedido_id", ["ped-1\nBcc: vitima@exemplo.com", "ped\r1", "ped\u20281"])
+def test_assunto_com_quebra_de_linha_e_dado_insuficiente(pedido_id: str) -> None:
+    modelo = modelo_para("pagamento.aprovado")
+    assert modelo is not None
+    with pytest.raises(DadosDoEventoInsuficientes):
+        modelo.renderizar({**EXEMPLOS["pagamento.aprovado"], "pedido_id": pedido_id}, nome="Ana")
