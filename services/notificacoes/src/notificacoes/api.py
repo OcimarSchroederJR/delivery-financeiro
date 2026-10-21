@@ -6,20 +6,34 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from notificacoes.adaptadores.cifrador import CifradorFernet
+from notificacoes.adaptadores.db.uow import fabrica_sql
+from notificacoes.adaptadores.http.rotas import router
+from notificacoes.aplicacao.portas import FabricaUow
 from notificacoes.config import Config
 from plataforma.api.app import criar_app_base
 from plataforma.api.saude import verificacao_banco, verificacao_broker
-from plataforma.auth import criar_verificador
+from plataforma.auth import VerificadorDeToken, criar_verificador
 from plataforma.db import criar_engine, criar_fabrica_sessoes
 from plataforma.logs import configurar_logs
 from plataforma.telemetria import configurar_telemetria, instrumentar_engine
 
 TITULO = "Notificações"
 VERSAO = "0.1.0"
-DESCRICAO = "Serviço de Notificações da Equipe 5 (Financeiro e Pós)."
+DESCRICAO = (
+    "Serviço de Notificações da Equipe 5 (Financeiro e Pós): recebe eventos de outras "
+    "equipes em POST /v1/eventos, envia e-mails por template e entrega webhooks "
+    "assinados com HMAC-SHA256 (retry 1 s, 5 s, 30 s, 2 min e 10 min; depois, DLQ)."
+)
 
 
-def criar_app(config: Config | None = None) -> FastAPI:
+def criar_app(
+    config: Config | None = None,
+    *,
+    fabrica_uow: FabricaUow | None = None,
+    verificador: VerificadorDeToken | None = None,
+) -> FastAPI:
+    """``fabrica_uow`` e ``verificador`` só são passados nos testes."""
     config = config or Config()
     configurar_logs(config.servico, formato=config.log_formato, nivel=config.log_nivel)
     configurar_telemetria(
@@ -34,10 +48,13 @@ def criar_app(config: Config | None = None) -> FastAPI:
     async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
         app.state.config = config
         app.state.fabrica_sessoes = criar_fabrica_sessoes(engine)
+        app.state.fabrica_uow = fabrica_uow or fabrica_sql(
+            app.state.fabrica_sessoes, CifradorFernet.de_segredo(config.segredo_de_cifragem())
+        )
         yield
         await engine.dispose()
 
-    return criar_app_base(
+    app = criar_app_base(
         config,
         titulo=TITULO,
         versao=VERSAO,
@@ -46,9 +63,11 @@ def criar_app(config: Config | None = None) -> FastAPI:
             "banco": verificacao_banco(engine),
             "broker": verificacao_broker(config.rabbitmq_url),
         },
-        verificador=criar_verificador(config),
+        verificador=verificador or criar_verificador(config),
         ciclo_de_vida=ciclo_de_vida,
     )
+    app.include_router(router)
+    return app
 
 
 def main() -> None:  # pragma: no cover - entrypoint de processo

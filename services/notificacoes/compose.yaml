@@ -16,6 +16,8 @@ x-ambiente-notificacoes: &ambiente-notificacoes
   IDENTIDADE_URL: ${IDENTIDADE_URL:-http://mock-identidade:8001}
   SMTP_HOST: mailpit
   SMTP_PORTA: "1025"
+  SMTP_REMETENTE: notificacoes@financeiro-eq5.local
+  EMAIL_ADMIN: ${EMAIL_ADMIN:-admin@financeiro-eq5.local}
   OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
   OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
 
@@ -64,6 +66,8 @@ services:
     <<: *imagem-notificacoes
     command: ["notificacoes-worker"]
     environment: *ambiente-notificacoes
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       disable: true
     depends_on:
