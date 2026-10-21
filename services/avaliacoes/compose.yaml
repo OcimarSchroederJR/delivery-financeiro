@@ -1,0 +1,77 @@
+# Containers do serviço de Avaliações (incluído pelo compose.yaml da raiz).
+x-imagem-avaliacoes: &imagem-avaliacoes
+  image: financeiro-eq5/avaliacoes:local
+  build:
+    context: ../..
+    dockerfile: services/avaliacoes/Dockerfile
+
+x-ambiente-avaliacoes: &ambiente-avaliacoes
+  AMBIENTE: local
+  LOG_FORMATO: ${LOG_FORMATO:-console}
+  ROOT_PATH: ""
+  DATABASE_URL: postgresql+asyncpg://avaliacoes:avaliacoes@db-avaliacoes:5432/avaliacoes
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  JWKS_URL: ${JWKS_URL:-http://mock-identidade:8001/.well-known/jwks.json}
+  TOKEN_SERVICO_SEGREDO: ${TOKEN_SERVICO_SEGREDO:-segredo-local-financeiro-eq5-troque-em-producao}
+  PEDIDOS_URL: ${PEDIDOS_URL:-http://mock-pedidos:8008}
+  PAGAMENTOS_URL: ${PAGAMENTOS_URL:-http://pagamentos:8000}
+  SAGA_MAX_TENTATIVAS: ${SAGA_MAX_TENTATIVAS:-10}
+  SAGA_ESPERA_BASE_SEGUNDOS: ${SAGA_ESPERA_BASE_SEGUNDOS:-5}
+  SAGA_ATRASO_INICIAL_SEGUNDOS: ${SAGA_ATRASO_INICIAL_SEGUNDOS:-30}
+  OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+services:
+  db-avaliacoes:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: avaliacoes
+      POSTGRES_PASSWORD: avaliacoes
+      POSTGRES_DB: avaliacoes
+    volumes:
+      - dados-avaliacoes:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avaliacoes -d avaliacoes"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-avaliacoes:
+    <<: *imagem-avaliacoes
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-avaliacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      db-avaliacoes:
+        condition: service_healthy
+    restart: "no"
+
+  avaliacoes:
+    <<: *imagem-avaliacoes
+    environment: *ambiente-avaliacoes
+    ports:
+      - "8015:8000"
+    depends_on:
+      migrate-avaliacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  avaliacoes-worker:
+    <<: *imagem-avaliacoes
+    command: ["avaliacoes-worker"]
+    environment: *ambiente-avaliacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-avaliacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dados-avaliacoes:

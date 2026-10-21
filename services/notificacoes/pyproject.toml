@@ -1,0 +1,33 @@
+[project]
+name = "notificacoes"
+version = "0.1.0"
+description = "Serviço de Notificações da Equipe 5 (Financeiro e Pós)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "plataforma",
+    "fastapi>=0.143,<1",
+    "uvicorn[standard]>=0.54,<1",
+    "pydantic>=2.14,<3",
+    "pydantic-settings>=2.16,<3",
+    "sqlalchemy[asyncio]>=2.0.40,<2.1",
+    "asyncpg>=0.32,<1",
+    "alembic>=1.20,<2",
+    "faststream[rabbit]>=0.7.7,<0.8",
+    "httpx>=0.28,<1",
+    "tenacity>=9.2,<10",
+    "structlog>=26.1,<27",
+    "aiosmtplib>=5.1,<6",
+    "cryptography>=50",
+    "email-validator>=2.3,<3",
+]
+
+[project.scripts]
+notificacoes-api = "notificacoes.api:main"
+notificacoes-worker = "notificacoes.worker:main"
+
+[tool.uv.sources]
+plataforma = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"

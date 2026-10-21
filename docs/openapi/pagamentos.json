@@ -1,0 +1,1024 @@
+{
+  "components": {
+    "schemas": {
+      "CartaoEntrada": {
+        "additionalProperties": false,
+        "description": "Nunca persistido nem logado; só os 4 últimos dígitos são guardados.",
+        "properties": {
+          "cvv": {
+            "examples": [
+              "123"
+            ],
+            "pattern": "^[0-9]{3,4}$",
+            "title": "Cvv",
+            "type": "string"
+          },
+          "numero": {
+            "examples": [
+              "4111111111110000"
+            ],
+            "pattern": "^[0-9]{13,19}$",
+            "title": "Numero",
+            "type": "string"
+          },
+          "titular": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Titular",
+            "type": "string"
+          },
+          "validade": {
+            "examples": [
+              "12/28"
+            ],
+            "pattern": "^(0[1-9]|1[0-2])/[0-9]{2}$",
+            "title": "Validade",
+            "type": "string"
+          }
+        },
+        "required": [
+          "numero",
+          "titular",
+          "validade",
+          "cvv"
+        ],
+        "title": "CartaoEntrada",
+        "type": "object"
+      },
+      "CorpoErro": {
+        "additionalProperties": true,
+        "description": "Schema do corpo de erro (documentação OpenAPI).",
+        "properties": {
+          "codigo": {
+            "title": "Codigo",
+            "type": "string"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "erro": {
+            "default": true,
+            "title": "Erro",
+            "type": "boolean"
+          },
+          "mensagem": {
+            "title": "Mensagem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mensagem",
+          "codigo"
+        ],
+        "title": "CorpoErro",
+        "type": "object"
+      },
+      "CriarPagamentoEntrada": {
+        "additionalProperties": false,
+        "description": "Não há campo de valor: ele vem da Eq. 3 (regra 1).",
+        "properties": {
+          "cartao": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CartaoEntrada"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metodo": {
+            "$ref": "#/components/schemas/MetodoPagamento"
+          },
+          "pedido_id": {
+            "examples": [
+              "ped-1"
+            ],
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Pedido Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pedido_id",
+          "metodo"
+        ],
+        "title": "CriarPagamentoEntrada",
+        "type": "object"
+      },
+      "EstornarEntrada": {
+        "additionalProperties": false,
+        "description": "Sem ``valor_centavos``, estorna o saldo estornável inteiro.",
+        "properties": {
+          "motivo": {
+            "examples": [
+              "disputa procedente"
+            ],
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Motivo",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              1000
+            ],
+            "title": "Valor Centavos"
+          }
+        },
+        "required": [
+          "motivo"
+        ],
+        "title": "EstornarEntrada",
+        "type": "object"
+      },
+      "EstornoCriadoSaida": {
+        "description": "Corpo do 201 do estorno. ``status`` é o status do pagamento após este estorno.",
+        "properties": {
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusPagamento"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "pagamento_id",
+          "valor_centavos",
+          "motivo",
+          "criado_em",
+          "status"
+        ],
+        "title": "EstornoCriadoSaida",
+        "type": "object"
+      },
+      "EstornoSaida": {
+        "properties": {
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pagamento_id": {
+            "format": "uuid",
+            "title": "Pagamento Id",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "pagamento_id",
+          "valor_centavos",
+          "motivo",
+          "criado_em"
+        ],
+        "title": "EstornoSaida",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "MetodoPagamento": {
+        "enum": [
+          "cartao_credito",
+          "pix"
+        ],
+        "title": "MetodoPagamento",
+        "type": "string"
+      },
+      "PagamentoSaida": {
+        "properties": {
+          "atualizado_em": {
+            "title": "Atualizado Em",
+            "type": "string"
+          },
+          "cartao_final": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cartao Final"
+          },
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "criado_em": {
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metodo": {
+            "$ref": "#/components/schemas/MetodoPagamento"
+          },
+          "motivo_recusa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Recusa"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "saldo_estornavel_centavos": {
+            "title": "Saldo Estornavel Centavos",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusPagamento"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          },
+          "valor_estornado_centavos": {
+            "title": "Valor Estornado Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "pedido_id",
+          "cliente_id",
+          "valor_centavos",
+          "metodo",
+          "status",
+          "motivo_recusa",
+          "cartao_final",
+          "valor_estornado_centavos",
+          "saldo_estornavel_centavos",
+          "criado_em",
+          "atualizado_em"
+        ],
+        "title": "PagamentoSaida",
+        "type": "object"
+      },
+      "Pagina_EstornoSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/EstornoSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[EstornoSaida]",
+        "type": "object"
+      },
+      "Pagina_PagamentoSaida_": {
+        "properties": {
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/PagamentoSaida"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "pagina": {
+            "title": "Pagina",
+            "type": "integer"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "itens",
+          "pagina",
+          "tamanho",
+          "total"
+        ],
+        "title": "Pagina[PagamentoSaida]",
+        "type": "object"
+      },
+      "StatusPagamento": {
+        "enum": [
+          "aprovado",
+          "recusado",
+          "parcialmente_estornado",
+          "estornado"
+        ],
+        "title": "StatusPagamento",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "JWT da Equipe 1 (ou token de serviço interno da Equipe 5).",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Serviço de Pagamentos da Equipe 5 (Financeiro e Pós): autorização de pagamentos de pedidos, estornos e eventos pagamento.aprovado|recusado|estornado.",
+    "title": "Pagamentos",
+    "version": "0.2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/saude/pronto": {
+      "get": {
+        "operationId": "pronto_saude_pronto_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness: banco e broker acessíveis",
+        "tags": [
+          "saude"
+        ]
+      }
+    },
+    "/saude/vivo": {
+      "get": {
+        "operationId": "vivo_saude_vivo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Vivo Saude Vivo Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness: o processo está de pé",
+        "tags": [
+          "saude"
+        ]
+      }
+    },
+    "/v1/pagamentos": {
+      "get": {
+        "operationId": "listar_pagamentos_v1_pagamentos_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pedido_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pedido Id"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_PagamentoSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista pagamentos (cliente vê só os seus; admin e serviço veem todos)",
+        "tags": [
+          "pagamentos"
+        ]
+      },
+      "post": {
+        "description": "O valor vem da Equipe 3. Recusa devolve 409 PAGAMENTO_RECUSADO com `pagamento_id`; a mesma Idempotency-Key com o mesmo corpo devolve a resposta gravada.",
+        "operationId": "criar_pagamento_v1_pagamentos_post",
+        "parameters": [
+          {
+            "description": "Obrigatório. Chave única da operação (1 a 255 caracteres ASCII visíveis), válida por 24 h.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Obrigatório. Chave única da operação (1 a 255 caracteres ASCII visíveis), válida por 24 h.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarPagamentoEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagamentoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cria (autoriza) o pagamento de um pedido",
+        "tags": [
+          "pagamentos"
+        ]
+      }
+    },
+    "/v1/pagamentos/{pagamento_id}": {
+      "get": {
+        "operationId": "obter_pagamento_v1_pagamentos__pagamento_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagamentoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detalha um pagamento",
+        "tags": [
+          "pagamentos"
+        ]
+      }
+    },
+    "/v1/pagamentos/{pagamento_id}/estornos": {
+      "get": {
+        "operationId": "listar_estornos_v1_pagamentos__pagamento_id__estornos_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Página, começando em 1",
+            "in": "query",
+            "name": "pagina",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Página, começando em 1",
+              "minimum": 1,
+              "title": "Pagina",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Itens por página (máx. 100)",
+            "in": "query",
+            "name": "tamanho",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Itens por página (máx. 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Tamanho",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pagina_EstornoSaida_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista os estornos de um pagamento",
+        "tags": [
+          "pagamentos"
+        ]
+      },
+      "post": {
+        "description": "Sem `valor_centavos`, estorna o saldo estornável inteiro. Aceita token de serviço (saga de disputa de Avaliações). A mesma Idempotency-Key devolve o estorno gravado.",
+        "operationId": "estornar_pagamento_v1_pagamentos__pagamento_id__estornos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Obrigatório. Chave única da operação (1 a 255 caracteres ASCII visíveis), válida por 24 h.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Obrigatório. Chave única da operação (1 a 255 caracteres ASCII visíveis), válida por 24 h.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstornarEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstornoCriadoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Estorna total ou parcialmente um pagamento",
+        "tags": [
+          "pagamentos"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,578 @@
+{
+  "asyncapi": "3.0.0",
+  "channels": {
+    "avaliacao.registrada": {
+      "address": "avaliacao.registrada",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Avaliação registrada para um pedido entregue.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/avaliacao.registrada:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "disputa.aberta": {
+      "address": "disputa.aberta",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Cliente abriu uma disputa sobre um pedido pago.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/disputa.aberta:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "disputa.estorno_falhou": {
+      "address": "disputa.estorno_falhou",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Estorno da disputa falhou de forma definitiva; o admin precisa agir.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/disputa.estorno_falhou:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "disputa.resolvida": {
+      "address": "disputa.resolvida",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "autoDelete": false,
+            "durable": true,
+            "name": "financeiro.eventos",
+            "type": "topic",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Disputa encerrada: procedente (estorno feito) ou improcedente (valor 0).",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/disputa.resolvida:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    }
+  },
+  "components": {
+    "messages": {
+      "avaliacao.registrada:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoAvaliacaoRegistrada"
+        },
+        "title": "avaliacao.registrada:Message"
+      },
+      "disputa.aberta:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoDisputaAberta"
+        },
+        "title": "disputa.aberta:Message"
+      },
+      "disputa.estorno_falhou:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoDisputaEstornoFalhou"
+        },
+        "title": "disputa.estorno_falhou:Message"
+      },
+      "disputa.resolvida:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EventoDisputaResolvida"
+        },
+        "title": "disputa.resolvida:Message"
+      }
+    },
+    "schemas": {
+      "DadosAvaliacaoRegistrada": {
+        "properties": {
+          "avaliacao_id": {
+            "format": "uuid",
+            "title": "Avaliacao Id",
+            "type": "string"
+          },
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "nota_entrega": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nota Entrega"
+          },
+          "nota_restaurante": {
+            "title": "Nota Restaurante",
+            "type": "integer"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "restaurante_id": {
+            "title": "Restaurante Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "avaliacao_id",
+          "pedido_id",
+          "restaurante_id",
+          "cliente_id",
+          "nota_restaurante",
+          "nota_entrega"
+        ],
+        "title": "DadosAvaliacaoRegistrada",
+        "type": "object"
+      },
+      "DadosDisputaAberta": {
+        "properties": {
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "disputa_id": {
+            "format": "uuid",
+            "title": "Disputa Id",
+            "type": "string"
+          },
+          "motivo": {
+            "$ref": "#/components/schemas/MotivoDisputa"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "valor_solicitado_centavos": {
+            "title": "Valor Solicitado Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "disputa_id",
+          "pedido_id",
+          "cliente_id",
+          "motivo",
+          "valor_solicitado_centavos"
+        ],
+        "title": "DadosDisputaAberta",
+        "type": "object"
+      },
+      "DadosDisputaEstornoFalhou": {
+        "properties": {
+          "disputa_id": {
+            "format": "uuid",
+            "title": "Disputa Id",
+            "type": "string"
+          },
+          "motivo": {
+            "description": "Código da recusa definitiva de Pagamentos (ex.: PAGAMENTO_NAO_ESTORNAVEL, VALOR_EXCEDE_SALDO_ESTORNAVEL, HTTP_404) ou RESULTADO_INCERTO quando as tentativas se esgotaram com falha transitória: o estorno pode ter sido feito; confira em Pagamentos antes de agir.",
+            "title": "Motivo",
+            "type": "string"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disputa_id",
+          "pedido_id",
+          "motivo"
+        ],
+        "title": "DadosDisputaEstornoFalhou",
+        "type": "object"
+      },
+      "DadosDisputaResolvida": {
+        "properties": {
+          "cliente_id": {
+            "title": "Cliente Id",
+            "type": "string"
+          },
+          "decisao": {
+            "$ref": "#/components/schemas/Decisao"
+          },
+          "disputa_id": {
+            "format": "uuid",
+            "title": "Disputa Id",
+            "type": "string"
+          },
+          "pedido_id": {
+            "title": "Pedido Id",
+            "type": "string"
+          },
+          "valor_estornado_centavos": {
+            "title": "Valor Estornado Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "disputa_id",
+          "pedido_id",
+          "cliente_id",
+          "decisao",
+          "valor_estornado_centavos"
+        ],
+        "title": "DadosDisputaResolvida",
+        "type": "object"
+      },
+      "Decisao": {
+        "enum": [
+          "procedente",
+          "improcedente"
+        ],
+        "title": "Decisao",
+        "type": "string"
+      },
+      "EventoAvaliacaoRegistrada": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosAvaliacaoRegistrada"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "avaliacao.registrada",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoAvaliacaoRegistrada",
+        "type": "object"
+      },
+      "EventoDisputaAberta": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosDisputaAberta"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "disputa.aberta",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoDisputaAberta",
+        "type": "object"
+      },
+      "EventoDisputaEstornoFalhou": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosDisputaEstornoFalhou"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "disputa.estorno_falhou",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoDisputaEstornoFalhou",
+        "type": "object"
+      },
+      "EventoDisputaResolvida": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "dados": {
+            "$ref": "#/components/schemas/DadosDisputaResolvida"
+          },
+          "mensagem_id": {
+            "format": "uuid",
+            "title": "Mensagem Id",
+            "type": "string"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "const": "disputa.resolvida",
+            "title": "Tipo",
+            "type": "string"
+          },
+          "versao": {
+            "const": 1,
+            "default": 1,
+            "title": "Versao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mensagem_id",
+          "ocorrido_em",
+          "correlation_id",
+          "tipo",
+          "dados"
+        ],
+        "title": "EventoDisputaResolvida",
+        "type": "object"
+      },
+      "MotivoDisputa": {
+        "enum": [
+          "item_faltando",
+          "pedido_errado",
+          "nao_entregue",
+          "qualidade"
+        ],
+        "title": "MotivoDisputa",
+        "type": "string"
+      }
+    }
+  },
+  "defaultContentType": "application/json",
+  "info": {
+    "title": "Avaliações (eventos)",
+    "version": "0.1.0"
+  },
+  "operations": {
+    "avaliacao.registrada": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "avaliacao.registrada"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/avaliacao.registrada"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/avaliacao.registrada/messages/Message"
+        }
+      ]
+    },
+    "disputa.aberta": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "disputa.aberta"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/disputa.aberta"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/disputa.aberta/messages/Message"
+        }
+      ]
+    },
+    "disputa.estorno_falhou": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "disputa.estorno_falhou"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/disputa.estorno_falhou"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/disputa.estorno_falhou/messages/Message"
+        }
+      ]
+    },
+    "disputa.resolvida": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "disputa.resolvida"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/disputa.resolvida"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/disputa.resolvida/messages/Message"
+        }
+      ]
+    }
+  },
+  "servers": {
+    "development": {
+      "description": "Eventos do serviço de Avaliações (exchange financeiro.eventos).",
+      "host": "rabbitmq:5672",
+      "pathname": "/",
+      "protocol": "amqp",
+      "protocolVersion": "0.9.1"
+    }
+  }
+}
