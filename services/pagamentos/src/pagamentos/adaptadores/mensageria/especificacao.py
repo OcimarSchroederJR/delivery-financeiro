@@ -1,23 +1,25 @@
 """Documentação AsyncAPI dos eventos do serviço.
 
-A publicação real é feita pelo relay do outbox; aqui só declaramos os canais
-para gerar ``docs/asyncapi/<servico>.json``. Para cada evento publicado, registre
-no broker retornado::
-
-    broker.publisher(
-        routing_key=<tipo do evento>,
-        exchange=EXCHANGE_EVENTOS,
-        title=<tipo do evento>,
-        schema=<modelo Pydantic dos dados>,
-    )
+A publicação real é feita pelo relay do outbox (worker); aqui só declaramos os
+canais para gerar ``docs/asyncapi/pagamentos.json``.
 """
 
 from faststream.rabbit import RabbitBroker
 
-from plataforma.mensageria import criar_broker_especificacao
+from pagamentos.adaptadores.mensageria.esquemas import EVENTOS_PUBLICADOS
+from plataforma.mensageria import EXCHANGE_EVENTOS, criar_broker_especificacao
 
 
 def criar_broker_documentado() -> RabbitBroker:
-    return criar_broker_especificacao(
-        "Eventos do serviço de Pagamentos (exchange financeiro.eventos)."
+    broker = criar_broker_especificacao(
+        "Eventos do serviço de Pagamentos (exchange financeiro.eventos; routing key = tipo)."
     )
+    for tipo, evento in EVENTOS_PUBLICADOS.items():
+        broker.publisher(
+            routing_key=tipo,
+            exchange=EXCHANGE_EVENTOS,
+            title=tipo,
+            description=evento.descricao,
+            schema=evento.envelope,
+        )
+    return broker
