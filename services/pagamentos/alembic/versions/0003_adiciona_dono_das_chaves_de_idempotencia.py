@@ -1,4 +1,4 @@
-"""adiciona o dono (token da reserva) às chaves de idempotência
+"""adiciona o dono (token da reserva) e amplia o escopo das chaves de idempotência
 
 Revision ID: 0003
 Revises: 0002
@@ -22,7 +22,18 @@ def upgrade() -> None:
     # requisição em andamento o conhece, então elas só podem ser repetidas ou reassumidas.
     op.execute("UPDATE chaves_idempotencia SET dono = gen_random_uuid() WHERE dono IS NULL")
     op.alter_column("chaves_idempotencia", "dono", nullable=False)
+    # O escopo da criação passa a incluir o id do usuário.
+    op.alter_column(
+        "chaves_idempotencia", "escopo", type_=sa.Text(), existing_type=sa.String(length=200)
+    )
 
 
 def downgrade() -> None:
+    op.alter_column(
+        "chaves_idempotencia",
+        "escopo",
+        type_=sa.String(length=200),
+        existing_type=sa.Text(),
+        postgresql_using="left(escopo, 200)",
+    )
     op.drop_column("chaves_idempotencia", "dono")

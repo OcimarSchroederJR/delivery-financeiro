@@ -299,3 +299,13 @@ async def test_falha_depois_do_commit_do_estorno_nao_estorna_de_novo(banco_migra
         )
         == 1
     )
+
+
+async def test_usuario_com_id_longo_cabe_no_escopo_da_chave(
+    api_real: httpx.AsyncClient, banco_migrado: str
+) -> None:
+    resposta = await api_real.post(
+        ROTA, json=corpo_pix("ped-3"), headers=cabecalhos("admin", "a" * 300, chave="k-longa")
+    )
+    assert resposta.status_code == 201
+    assert await _escalar(banco_migrado, "SELECT count(*) FROM chaves_idempotencia") == 1

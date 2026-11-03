@@ -35,6 +35,11 @@ router = APIRouter(prefix="/v1/pagamentos", tags=["pagamentos"])
 ESCOPO_CRIAR = "POST /v1/pagamentos"
 
 
+def _escopo_criar(usuario_id: str) -> str:
+    """Escopo por usuário: chaves iguais de usuários diferentes não colidem."""
+    return f"{ESCOPO_CRIAR} usuario={usuario_id}"
+
+
 def _uuid_ou_404(texto: str) -> UUID:
     try:
         return UUID(texto)
@@ -71,7 +76,7 @@ async def criar_pagamento(
 
     resultado = await casos.idempotencia.executar(
         chave=idempotency_key,
-        escopo=ESCOPO_CRIAR,
+        escopo=_escopo_criar(usuario.id),
         dados={"usuario_id": usuario.id, "corpo": corpo.dados_idempotencia()},
         operacao=operar,
     )

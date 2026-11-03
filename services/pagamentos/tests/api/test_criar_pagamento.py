@@ -17,7 +17,7 @@ from pagamentos.testes.requisicoes import (
 from plataforma.correlation import HEADER_CORRELATION_ID
 
 ROTA = "/v1/pagamentos"
-ESCOPO = "POST /v1/pagamentos"
+ESCOPO = "POST /v1/pagamentos usuario=cliente-1"
 
 
 async def test_cria_pagamento_aprovado_com_cartao(
@@ -229,8 +229,23 @@ async def test_mesma_chave_e_corpo_de_outro_usuario_nao_recebe_a_resposta_alheia
     resposta = await api.post(
         ROTA, json=corpo_pix("ped-3"), headers=cabecalhos("cliente", "cliente-2", chave="k-c")
     )
-    assert resposta.status_code == 422
-    assert resposta.json()["codigo"] == "IDEMPOTENCY_KEY_REUTILIZADA"
+    # A chave é escopada por usuário: a do cliente é processada como nova.
+    assert resposta.status_code == 409
+    assert resposta.json()["codigo"] == "PEDIDO_JA_PAGO"
+    assert "Idempotency-Replayed" not in resposta.headers
+
+
+async def test_mesma_chave_de_usuarios_diferentes_nao_colide(
+    api: httpx.AsyncClient, estado: EstadoFake
+) -> None:
+    primeira = await api.post(
+        ROTA, json=corpo_pix("ped-1"), headers=cabecalhos("cliente", "cliente-1", chave="k-comum")
+    )
+    segunda = await api.post(
+        ROTA, json=corpo_pix("ped-3"), headers=cabecalhos("cliente", "cliente-2", chave="k-comum")
+    )
+    assert (primeira.status_code, segunda.status_code) == (201, 201)
+    assert len(estado.pagamentos) == 2
 
 
 async def test_chave_expirada_processa_de_novo(api: httpx.AsyncClient, estado: EstadoFake) -> None:
