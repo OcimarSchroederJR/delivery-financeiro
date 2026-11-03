@@ -43,8 +43,9 @@ class DestinoBloqueado(Exception):
 
 
 def _rota_para_log(url: str) -> str:
+    """Só esquema e host: path, query e porta podem carregar tokens do receptor."""
     partes = urlsplit(url)
-    return f"{partes.scheme}://{partes.netloc}{partes.path}"
+    return f"{partes.scheme}://{partes.hostname or ''}"
 
 
 class EntregadorHttpx:

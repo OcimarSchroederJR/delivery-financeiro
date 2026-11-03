@@ -70,17 +70,25 @@ async def test_erro_de_rede_vira_resultado(entregador: EntregadorHttpx) -> None:
 
 
 @respx.mock
-async def test_loga_antes_e_depois_sem_query_string(entregador: EntregadorHttpx) -> None:
-    respx.post(host="receptor.teste", path="/hook").mock(return_value=httpx.Response(200))
+async def test_loga_so_esquema_e_host_sem_path_nem_query(entregador: EntregadorHttpx) -> None:
+    url = "https://receptor.teste:8443/hooks/segredo-no-path?token=abc123"
+    respx.post(host="receptor.teste", path="/hooks/segredo-no-path").mock(
+        return_value=httpx.Response(200)
+    )
     with capture_logs() as logs:
-        await entregador.entregar(f"{URL}?token=abc123", b"{}", {"X-Assinatura": "sha256=xyz"})
+        await entregador.entregar(url, b"{}", {"X-Assinatura": "sha256=xyz"})
     antes, depois = (log for log in logs if log["event"].startswith("http_saida"))
     assert (antes["event"], antes["dependencia"], antes["rota"]) == (
         "http_saida_iniciada",
         "webhook",
-        "https://receptor.teste/hook",
+        "https://receptor.teste",
     )
-    assert (depois["event"], depois["status"]) == ("http_saida_concluida", 200)
+    assert (depois["event"], depois["status"], depois["rota"]) == (
+        "http_saida_concluida",
+        200,
+        "https://receptor.teste",
+    )
+    assert "segredo-no-path" not in str(logs)
     assert "abc123" not in str(logs)
     assert "sha256=xyz" not in str(logs)
 
