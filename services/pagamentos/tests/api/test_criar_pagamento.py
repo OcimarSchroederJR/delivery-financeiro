@@ -285,3 +285,15 @@ async def test_openapi_documenta_idempotency_key_e_erros(api: httpx.AsyncClient)
     parametros = {(p["name"], p["in"]) for p in operacao["parameters"]}
     assert ("Idempotency-Key", "header") in parametros
     assert {"201", "400", "401", "403", "409", "422", "503"} <= set(operacao["responses"])
+
+
+async def test_pix_com_bloco_cartao_e_rejeitado(
+    api: httpx.AsyncClient, pedidos: ConsultaPedidosFake, estado: EstadoFake
+) -> None:
+    corpo = {**corpo_cartao(), "metodo": "pix"}
+    resposta = await api.post(ROTA, json=corpo, headers=cabecalhos(chave="k-pix-cartao"))
+    assert resposta.status_code == 422
+    assert resposta.json()["codigo"] == "REQUISICAO_INVALIDA"
+    assert NUMERO_CARTAO_PREFIXO not in resposta.text
+    assert pedidos.chamadas == []
+    assert estado.pagamentos == {}

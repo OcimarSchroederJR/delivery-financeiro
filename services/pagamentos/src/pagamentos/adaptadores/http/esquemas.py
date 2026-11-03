@@ -46,6 +46,8 @@ class CriarPagamentoEntrada(BaseModel):
     def _exigir_cartao(self) -> Self:
         if self.metodo == MetodoPagamento.CARTAO_CREDITO and self.cartao is None:
             raise ValueError("o bloco 'cartao' é obrigatório quando metodo = cartao_credito")
+        if self.metodo == MetodoPagamento.PIX and self.cartao is not None:
+            raise ValueError("o bloco 'cartao' não é aceito quando metodo = pix")
         return self
 
     def para_comando(self) -> ComandoCriarPagamento:
