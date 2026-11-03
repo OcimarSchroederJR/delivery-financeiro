@@ -28,6 +28,14 @@ class RepositorioPagamentos(Protocol):
 
     async def existe_efetivado(self, pedido_id: str) -> bool: ...
 
+    async def travar_pedido(self, pedido_id: str) -> None:
+        """Serializa as operações sobre o pedido até o fim da transação.
+
+        Usada na criação: checagem de "já pago", gateway e gravação ficam numa só
+        transação, e duas requisições para o mesmo pedido nunca autorizam juntas.
+        """
+        ...
+
     async def listar(
         self, *, pedido_id: str | None, cliente_id: str | None, deslocamento: int, limite: int
     ) -> tuple[list[Pagamento], int]:
@@ -49,20 +57,30 @@ class RepositorioChavesIdempotencia(Protocol):
         ...
 
     async def substituir(self, registro: RegistroIdempotencia) -> None:
-        """Reaproveita uma chave expirada ou abandonada com uma nova reserva."""
+        """Reaproveita uma chave expirada ou abandonada com uma nova reserva (dono novo)."""
         ...
 
     async def concluir(
-        self, escopo: str, chave: str, *, status_resposta: int, corpo_resposta: Mapping[str, Any]
-    ) -> None:
-        """Grava a resposta. Sem efeito se a chave já estiver concluída."""
+        self,
+        escopo: str,
+        chave: str,
+        dono: UUID,
+        *,
+        status_resposta: int,
+        corpo_resposta: Mapping[str, Any],
+    ) -> bool:
+        """Grava a resposta se a reserva ainda é deste ``dono`` e está em processamento.
+
+        Retorna ``False`` (sem alterar nada) se a chave foi reassumida por outro dono
+        ou já está concluída.
+        """
         ...
 
-    async def remover(self, escopo: str, chave: str) -> None:
-        """Libera uma reserva ainda ``em_processamento``.
+    async def remover(self, escopo: str, chave: str, dono: UUID) -> None:
+        """Libera a reserva deste ``dono`` se ainda estiver ``em_processamento``.
 
-        Chave concluída nunca é removida: a conclusão é gravada na transação do efeito,
-        então apagá-la depois do commit faria uma repetição refazer o efeito.
+        Chave concluída nunca é removida (a conclusão é gravada na transação do efeito)
+        e a reserva de outro dono (reassumida) também não.
         """
         ...
 
@@ -116,9 +134,18 @@ class ResultadoAutorizacao:
 
 class GatewayDePagamento(Protocol):
     async def autorizar(
-        self, *, metodo: MetodoPagamento, valor_centavos: int, cartao: DadosCartao | None
+        self,
+        *,
+        metodo: MetodoPagamento,
+        valor_centavos: int,
+        cartao: DadosCartao | None,
+        chave_idempotencia: str | None = None,
     ) -> ResultadoAutorizacao:
-        """Timeout -> ``ErroDependenciaIndisponivel("gateway")``."""
+        """Timeout -> ``ErroDependenciaIndisponivel("gateway")``.
+
+        Com ``chave_idempotencia``, a mesma chave devolve a mesma autorização sem
+        cobrar de novo (repetição depois de timeout ou de reassunção da chave).
+        """
         ...
 
 

@@ -15,9 +15,19 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
-from pagamentos.aplicacao.portas import Apresentador, FabricaUnidadeDeTrabalho, Relogio
-from pagamentos.dominio.erros import IdempotencyEmProcessamento, IdempotencyKeyReutilizada
+from pagamentos.aplicacao.portas import (
+    Apresentador,
+    FabricaUnidadeDeTrabalho,
+    Relogio,
+    UnidadeDeTrabalho,
+)
+from pagamentos.dominio.erros import (
+    IdempotencyEmProcessamento,
+    IdempotencyKeyReutilizada,
+    ReservaIdempotenciaPerdida,
+)
 from pagamentos.dominio.idempotencia import (
     VALIDADE,
     Decisao,
@@ -38,6 +48,31 @@ class ReservaIdempotencia:
 
     escopo: str
     chave: str
+    dono: UUID
+
+
+async def concluir_reserva(
+    uow: UnidadeDeTrabalho,
+    reserva: ReservaIdempotencia,
+    *,
+    status_resposta: int,
+    corpo_resposta: Mapping[str, Any],
+) -> None:
+    """Conclui a chave na transação do efeito; se a reserva não é mais nossa, desfaz tudo.
+
+    Levanta ``ReservaIdempotenciaPerdida`` antes do commit: a unidade de trabalho faz
+    rollback e o efeito desta requisição não é gravado (quem reassumiu já o fez ou fará).
+    """
+    concluida = await uow.chaves_idempotencia.concluir(
+        reserva.escopo,
+        reserva.chave,
+        reserva.dono,
+        status_resposta=status_resposta,
+        corpo_resposta=corpo_resposta,
+    )
+    if not concluida:
+        _log.warning("idempotencia_reserva_perdida", escopo=reserva.escopo, chave=reserva.chave)
+        raise ReservaIdempotenciaPerdida()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,16 +103,18 @@ class ExecutorIdempotente:
         dados: Mapping[str, Any],
         operacao: Callable[[ReservaIdempotencia], Awaitable[T]],
     ) -> T | RespostaGravada:
-        reserva = ReservaIdempotencia(escopo=escopo, chave=validar_chave(chave))
-        gravada = await self._reservar(reserva, calcular_hash(dados, chave=self._chave_hash))
-        if gravada is not None:
+        chave_valida = validar_chave(chave)
+        reserva = await self._reservar(
+            escopo, chave_valida, calcular_hash(dados, chave=self._chave_hash)
+        )
+        if isinstance(reserva, RespostaGravada):
             _log.info(
                 "idempotencia_resposta_repetida",
                 escopo=escopo,
-                chave=reserva.chave,
-                status=gravada.status,
+                chave=chave_valida,
+                status=reserva.status,
             )
-            return gravada
+            return reserva
         try:
             return await operacao(reserva)
         except ErroAplicacao as erro:
@@ -91,16 +128,14 @@ class ExecutorIdempotente:
             raise
 
     async def _reservar(
-        self, reserva: ReservaIdempotencia, hash_requisicao: str
-    ) -> RespostaGravada | None:
+        self, escopo: str, chave: str, hash_requisicao: str
+    ) -> ReservaIdempotencia | RespostaGravada:
         agora = self._relogio()
         nova = RegistroIdempotencia.reservar(
-            escopo=reserva.escopo, chave=reserva.chave, hash_requisicao=hash_requisicao, agora=agora
+            escopo=escopo, chave=chave, hash_requisicao=hash_requisicao, agora=agora
         )
         async with self._fabrica_uow() as uow:
-            existente = await uow.chaves_idempotencia.obter(
-                reserva.escopo, reserva.chave, para_atualizar=True
-            )
+            existente = await uow.chaves_idempotencia.obter(escopo, chave, para_atualizar=True)
             if existente is None:
                 await uow.chaves_idempotencia.reservar(nova)
             else:
@@ -114,14 +149,16 @@ class ExecutorIdempotente:
                     raise IdempotencyEmProcessamento()
                 await uow.chaves_idempotencia.substituir(nova)
             await uow.commit()
-        return None
+        return ReservaIdempotencia(escopo=escopo, chave=chave, dono=nova.dono)
 
     async def _concluir_com_erro(self, reserva: ReservaIdempotencia, erro: ErroAplicacao) -> None:
         try:
             async with self._fabrica_uow() as uow:
+                # Sem efeito se a chave já foi concluída pela operação ou reassumida.
                 await uow.chaves_idempotencia.concluir(
                     reserva.escopo,
                     reserva.chave,
+                    reserva.dono,
                     status_resposta=erro.status_http,
                     corpo_resposta=self._apresentador.erro(erro),
                 )
@@ -135,8 +172,9 @@ class ExecutorIdempotente:
     async def _liberar(self, reserva: ReservaIdempotencia) -> None:
         try:
             async with self._fabrica_uow() as uow:
-                # Só remove se ainda estiver em processamento (efeito não commitado).
-                await uow.chaves_idempotencia.remover(reserva.escopo, reserva.chave)
+                # Só remove a reserva deste dono ainda em processamento (efeito não
+                # commitado e chave não reassumida por outra requisição).
+                await uow.chaves_idempotencia.remover(reserva.escopo, reserva.chave, reserva.dono)
                 await uow.commit()
         except Exception:
             _log.warning(

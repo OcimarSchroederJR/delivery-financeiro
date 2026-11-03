@@ -206,3 +206,15 @@ async def test_openapi_documenta_idempotency_key_no_estorno(api: httpx.AsyncClie
     operacao = caminhos["/v1/pagamentos/{pagamento_id}/estornos"]["post"]
     assert ("Idempotency-Key", "header") in {(p["name"], p["in"]) for p in operacao["parameters"]}
     assert {"201", "400", "404", "409", "422"} <= set(operacao["responses"])
+
+
+async def test_openapi_documenta_503_em_todas_as_rotas_v1(api: httpx.AsyncClient) -> None:
+    caminhos = (await api.get("/openapi.json")).json()["paths"]
+    sem_503 = [
+        f"{metodo.upper()} {caminho}"
+        for caminho, operacoes in caminhos.items()
+        if caminho.startswith("/v1/")
+        for metodo, operacao in operacoes.items()
+        if "503" not in operacao["responses"]
+    ]
+    assert sem_503 == []

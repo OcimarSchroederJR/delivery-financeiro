@@ -7,7 +7,16 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy import text as sql
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -76,10 +85,13 @@ class ChaveIdempotenciaModelo(Base):
         CheckConstraint("status IN ('em_processamento', 'concluida')", name="status_valido"),
     )
 
-    escopo: Mapped[str] = mapped_column(String(200), primary_key=True)
+    # Texto livre: o escopo da criação inclui o id do usuário (tamanho definido pela Eq. 1).
+    escopo: Mapped[str] = mapped_column(Text, primary_key=True)
     chave: Mapped[str] = mapped_column(String(255), primary_key=True)
     hash_requisicao: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(20))
     status_resposta: Mapped[int | None] = mapped_column(Integer)
     corpo_resposta: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # Token da reserva atual: reassumir a chave troca o dono (ver dominio.idempotencia).
+    dono: Mapped[uuid.UUID]

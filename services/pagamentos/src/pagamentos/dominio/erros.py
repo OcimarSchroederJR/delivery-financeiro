@@ -91,3 +91,15 @@ class IdempotencyKeyReutilizada(ErroRegraDeNegocio):
 class IdempotencyEmProcessamento(ErroConflito):
     codigo_padrao = "IDEMPOTENCY_EM_PROCESSAMENTO"
     mensagem_padrao = "Uma requisição com esta Idempotency-Key ainda está em processamento."
+
+
+class ReservaIdempotenciaPerdida(IdempotencyEmProcessamento):
+    """A reserva foi reassumida por outra requisição: o efeito desta é desfeito.
+
+    Mesmo status e código de ``IdempotencyEmProcessamento`` (409, transitório): a
+    repetição com a mesma chave devolve a resposta de quem reassumiu.
+    """
+
+    mensagem_padrao = (
+        "A reserva desta Idempotency-Key foi reassumida por outra requisição; repita a chamada."
+    )
