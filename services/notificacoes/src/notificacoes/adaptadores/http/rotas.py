@@ -50,14 +50,23 @@ _CORPO_ENVELOPE = {
     responses=respostas_erro(400, 401, 403),
     summary="Recebe um evento de outra equipe (ex.: pedido.*, entrega.*)",
     description="Valida o envelope, deduplica por mensagem_id e o publica em "
-    "financeiro.eventos (routing key = tipo). Papéis: loja, entregador, admin.",
+    "financeiro.eventos (routing key = tipo).\n\n"
+    "Tipos por papel: `entregador` só `entrega.*`; `loja` só `pedido.*`; `admin` "
+    "qualquer tipo não reservado. Fora disso: 403 TIPO_DE_EVENTO_NAO_PERMITIDO. "
+    "Tipos da Equipe 5 (`pagamento.*`, `estorno.*`, `avaliacao.*`, `disputa.*`, "
+    "`notificacao.*`, `tarefa.*`): 403 TIPO_DE_EVENTO_RESERVADO. Outros papéis: "
+    "403 ACESSO_NEGADO.\n\n"
+    "Campos `*_id` de `dados`: texto de 1 a 128 caracteres, sem caracteres de "
+    "controle (senão 400 ENVELOPE_INVALIDO).",
     openapi_extra=_CORPO_ENVELOPE,
     tags=["eventos"],
 )
 async def receber_evento(
-    requisicao: Request, _produtor: ProdutorDeEventos, uow: Uow
+    requisicao: Request, produtor: ProdutorDeEventos, uow: Uow
 ) -> EventoAceito:
-    recebido = await receber_evento_externo(uow, interpretar_corpo(await requisicao.body()))
+    recebido = await receber_evento_externo(
+        uow, interpretar_corpo(await requisicao.body()), papel=produtor.papel.value
+    )
     return EventoAceito(
         mensagem_id=recebido.mensagem_id, status="aceito" if recebido.novo else "duplicado"
     )

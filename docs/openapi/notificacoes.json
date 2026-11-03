@@ -535,7 +535,7 @@
     },
     "/v1/eventos": {
       "post": {
-        "description": "Valida o envelope, deduplica por mensagem_id e o publica em financeiro.eventos (routing key = tipo). Papéis: loja, entregador, admin.",
+        "description": "Valida o envelope, deduplica por mensagem_id e o publica em financeiro.eventos (routing key = tipo).\n\nTipos por papel: `entregador` só `entrega.*`; `loja` só `pedido.*`; `admin` qualquer tipo não reservado. Fora disso: 403 TIPO_DE_EVENTO_NAO_PERMITIDO. Tipos da Equipe 5 (`pagamento.*`, `estorno.*`, `avaliacao.*`, `disputa.*`, `notificacao.*`, `tarefa.*`): 403 TIPO_DE_EVENTO_RESERVADO. Outros papéis: 403 ACESSO_NEGADO.\n\nCampos `*_id` de `dados`: texto de 1 a 128 caracteres, sem caracteres de controle (senão 400 ENVELOPE_INVALIDO).",
         "operationId": "receber_evento_v1_eventos_post",
         "requestBody": {
           "content": {

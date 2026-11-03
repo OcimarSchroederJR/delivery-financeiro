@@ -8,7 +8,11 @@ from notificacoes.aplicacao.eventos_externos import (
     receber_evento_externo,
     validar_envelope,
 )
-from notificacoes.dominio.erros import EnvelopeInvalido, TipoDeEventoReservado
+from notificacoes.dominio.erros import (
+    EnvelopeInvalido,
+    TipoDeEventoNaoPermitido,
+    TipoDeEventoReservado,
+)
 from plataforma.envelope import EnvelopeEvento
 
 
@@ -24,8 +28,12 @@ def _envelope(**mudancas: Any) -> dict[str, Any]:
 async def test_evento_novo_e_gravado_e_duplicata_detectada() -> None:
     armazenamento = ArmazenamentoEmMemoria()
     dados = _envelope()
-    primeiro = await receber_evento_externo(UnidadeDeTrabalhoEmMemoria(armazenamento), dados)
-    segundo = await receber_evento_externo(UnidadeDeTrabalhoEmMemoria(armazenamento), dados)
+    primeiro = await receber_evento_externo(
+        UnidadeDeTrabalhoEmMemoria(armazenamento), dados, papel="entregador"
+    )
+    segundo = await receber_evento_externo(
+        UnidadeDeTrabalhoEmMemoria(armazenamento), dados, papel="entregador"
+    )
     assert primeiro.novo is True
     assert segundo.novo is False
     assert primeiro.mensagem_id == segundo.mensagem_id
@@ -46,7 +54,7 @@ async def test_tipo_reservado_e_recusado(tipo: str) -> None:
     armazenamento = ArmazenamentoEmMemoria()
     with pytest.raises(TipoDeEventoReservado) as erro:
         await receber_evento_externo(
-            UnidadeDeTrabalhoEmMemoria(armazenamento), _envelope(tipo=tipo)
+            UnidadeDeTrabalhoEmMemoria(armazenamento), _envelope(tipo=tipo), papel="admin"
         )
     assert erro.value.status_http == 403
     assert armazenamento.eventos_externos == {}
@@ -66,7 +74,9 @@ async def test_tipo_reservado_e_recusado(tipo: str) -> None:
 )
 async def test_envelope_invalido(dados: object) -> None:
     with pytest.raises(EnvelopeInvalido) as erro:
-        await receber_evento_externo(UnidadeDeTrabalhoEmMemoria(ArmazenamentoEmMemoria()), dados)
+        await receber_evento_externo(
+            UnidadeDeTrabalhoEmMemoria(ArmazenamentoEmMemoria()), dados, papel="admin"
+        )
     assert (erro.value.status_http, erro.value.codigo) == (400, "ENVELOPE_INVALIDO")
 
 
@@ -111,3 +121,36 @@ def test_ids_dos_dados_precisam_caber_no_banco_e_nao_ter_controle(
 def test_id_com_128_caracteres_e_aceito() -> None:
     envelope = validar_envelope(_envelope(dados={"cliente_id": "c" * 128, "pedido_id": "p"}))
     assert envelope.dados["cliente_id"] == "c" * 128
+
+
+@pytest.mark.parametrize(
+    ("papel", "tipo", "permitido"),
+    [
+        ("entregador", "entrega.concluida", True),
+        ("entregador", "pedido.criado", False),
+        ("loja", "pedido.criado", True),
+        ("loja", "entrega.concluida", False),
+        ("admin", "qualquer.coisa", True),
+        ("cliente", "pedido.criado", False),
+    ],
+)
+async def test_tipos_permitidos_por_papel(papel: str, tipo: str, permitido: bool) -> None:
+    armazenamento = ArmazenamentoEmMemoria()
+    uow = UnidadeDeTrabalhoEmMemoria(armazenamento)
+    if permitido:
+        assert (await receber_evento_externo(uow, _envelope(tipo=tipo), papel=papel)).novo
+        return
+    with pytest.raises(TipoDeEventoNaoPermitido) as erro:
+        await receber_evento_externo(uow, _envelope(tipo=tipo), papel=papel)
+    assert (erro.value.status_http, erro.value.codigo) == (403, "TIPO_DE_EVENTO_NAO_PERMITIDO")
+    assert erro.value.detalhes == {"tipo": tipo, "papel": papel}
+    assert armazenamento.eventos_externos == {}
+
+
+async def test_tipo_reservado_vence_a_regra_de_papel() -> None:
+    with pytest.raises(TipoDeEventoReservado):
+        await receber_evento_externo(
+            UnidadeDeTrabalhoEmMemoria(ArmazenamentoEmMemoria()),
+            _envelope(tipo="pagamento.aprovado"),
+            papel="entregador",
+        )

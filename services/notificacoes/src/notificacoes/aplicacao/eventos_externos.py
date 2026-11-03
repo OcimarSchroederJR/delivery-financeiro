@@ -14,7 +14,11 @@ from typing import Any
 from pydantic import ValidationError
 
 from notificacoes.aplicacao.portas import UnidadeDeTrabalho
-from notificacoes.dominio.erros import EnvelopeInvalido, TipoDeEventoReservado
+from notificacoes.dominio.erros import (
+    EnvelopeInvalido,
+    TipoDeEventoNaoPermitido,
+    TipoDeEventoReservado,
+)
 from plataforma.envelope import EnvelopeEvento
 from plataforma.logs import obter_logger
 
@@ -27,6 +31,14 @@ _CATEGORIAS_PROIBIDAS = frozenset({"Cc", "Zl", "Zp"})  # controle e quebras de l
 PREFIXOS_RESERVADOS = frozenset(
     {"pagamento", "estorno", "avaliacao", "disputa", "notificacao", "tarefa"}
 )
+PAPEL_ADMIN = "admin"
+# Cada sistema só publica os fatos do próprio domínio; admin publica qualquer
+# tipo não reservado. Premissa: a Eq. 1 emite papel ``loja`` só para a Eq. 3 e
+# ``entregador`` só para a Eq. 4 (não validamos o dono de cada pedido aqui).
+PREFIXOS_POR_PAPEL: dict[str, frozenset[str]] = {
+    "entregador": frozenset({"entrega"}),
+    "loja": frozenset({"pedido"}),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,10 +93,19 @@ def validar_envelope(dados: object) -> EnvelopeEvento:
     return envelope
 
 
-async def receber_evento_externo(uow: UnidadeDeTrabalho, dados: object) -> EventoRecebido:
+def exigir_tipo_permitido(tipo: str, papel: str) -> None:
+    prefixo = tipo.split(".", 1)[0]
+    if prefixo in PREFIXOS_RESERVADOS:
+        raise TipoDeEventoReservado(detalhes={"tipo": tipo})
+    if papel != PAPEL_ADMIN and prefixo not in PREFIXOS_POR_PAPEL.get(papel, frozenset()):
+        raise TipoDeEventoNaoPermitido(detalhes={"tipo": tipo, "papel": papel})
+
+
+async def receber_evento_externo(
+    uow: UnidadeDeTrabalho, dados: object, *, papel: str
+) -> EventoRecebido:
     envelope = validar_envelope(dados)
-    if envelope.tipo.split(".", 1)[0] in PREFIXOS_RESERVADOS:
-        raise TipoDeEventoReservado(detalhes={"tipo": envelope.tipo})
+    exigir_tipo_permitido(envelope.tipo, papel)
     async with uow:
         novo = await uow.eventos_externos.registrar_se_novo(envelope)
         await uow.commit()
