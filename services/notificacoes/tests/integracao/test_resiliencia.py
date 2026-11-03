@@ -10,6 +10,7 @@ import respx
 from structlog.testing import capture_logs
 
 from notificacoes.adaptadores.mensageria.topologia import FILA_DLQ
+from notificacoes.aplicacao.distribuicao import DistribuirEvento
 from plataforma.envelope import EnvelopeEvento
 from plataforma.mensageria import NOME_EXCHANGE_EVENTOS
 
@@ -179,3 +180,45 @@ async def test_mensagem_invalida_vai_para_a_dlq(
         await esperar_ate(na_dlq)
     finally:
         await conexao.close()
+
+
+@pytest.fixture
+def distribuicao_quebrada(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Simula um erro inesperado e permanente ao distribuir (ex.: violação no banco)."""
+    chamadas: list[str] = []
+
+    async def quebrar(self: DistribuirEvento, envelope: EnvelopeEvento) -> None:
+        chamadas.append(str(envelope.mensagem_id))
+        raise RuntimeError("erro permanente")
+
+    monkeypatch.setattr(DistribuirEvento, "executar", quebrar)
+    return chamadas
+
+
+async def test_mensagem_envenenada_vai_para_a_dlq_sem_loop_infinito(
+    distribuicao_quebrada: list[str],
+    worker: None,
+    publicar_evento: Publicar,
+    esperar_ate: Esperar,
+    rabbitmq_url: str,
+) -> None:
+    envelope = EnvelopeEvento.novo("pedido.criado", {"pedido_id": "ped-9"})
+    await publicar_evento(envelope)
+    conexao = await aio_pika.connect(rabbitmq_url)
+    try:
+        canal = await conexao.channel()
+
+        async def na_dlq() -> bool:
+            return await _mensagens_na_dlq(canal) == 1
+
+        await esperar_ate(na_dlq)
+        await asyncio.sleep(0.5)  # nenhuma reentrega depois da DLQ
+        assert len(distribuicao_quebrada) == 6  # 1 tentativa + 5 retentativas
+        dlq = await canal.declare_queue(FILA_DLQ, passive=True)
+        mensagem = await dlq.get(timeout=5)
+        await mensagem.ack()
+    finally:
+        await conexao.close()
+    assert mensagem.headers["x-fila-origem"] == "notificacoes.eventos"
+    assert "RuntimeError" in str(mensagem.headers["x-motivo"])
+    assert json.loads(mensagem.body)["mensagem_id"] == str(envelope.mensagem_id)

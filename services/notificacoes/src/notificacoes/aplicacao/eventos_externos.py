@@ -5,22 +5,40 @@ O relay publica depois em ``financeiro.eventos`` com routing key = ``tipo``.
 """
 
 import json
+import unicodedata
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import ValidationError
 
 from notificacoes.aplicacao.portas import UnidadeDeTrabalho
-from notificacoes.dominio.erros import EnvelopeInvalido, TipoDeEventoReservado
+from notificacoes.dominio.erros import (
+    EnvelopeInvalido,
+    TipoDeEventoNaoPermitido,
+    TipoDeEventoReservado,
+)
 from plataforma.envelope import EnvelopeEvento
 from plataforma.logs import obter_logger
 
 _log = obter_logger(__name__)
 
 TAMANHO_MAXIMO_ENVELOPE = 64 * 1024
+TAMANHO_MAXIMO_ID = 128  # = String(128) de destinatario_id/criado_por no banco
+_SUFIXO_ID = "_id"
+_CATEGORIAS_PROIBIDAS = frozenset({"Cc", "Zl", "Zp"})  # controle e quebras de linha
 PREFIXOS_RESERVADOS = frozenset(
     {"pagamento", "estorno", "avaliacao", "disputa", "notificacao", "tarefa"}
 )
+PAPEL_ADMIN = "admin"
+# Cada sistema só publica os fatos do próprio domínio; admin publica qualquer
+# tipo não reservado. Premissa: a Eq. 1 emite papel ``loja`` só para a Eq. 3 e
+# ``entregador`` só para a Eq. 4 (não validamos o dono de cada pedido aqui).
+PREFIXOS_POR_PAPEL: dict[str, frozenset[str]] = {
+    "entregador": frozenset({"entrega"}),
+    "loja": frozenset({"pedido"}),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,9 +56,30 @@ def interpretar_corpo(corpo: bytes) -> object:
         raise EnvelopeInvalido("O corpo não é um JSON válido.") from erro
 
 
+def _problema_do_id(valor: Any) -> str | None:
+    if not isinstance(valor, str):
+        return "Identificadores devem ser texto."
+    if not valor or len(valor) > TAMANHO_MAXIMO_ID:
+        return f"Identificadores devem ter de 1 a {TAMANHO_MAXIMO_ID} caracteres."
+    if any(unicodedata.category(caractere) in _CATEGORIAS_PROIBIDAS for caractere in valor):
+        return "Identificadores não podem ter caracteres de controle ou quebras de linha."
+    return None
+
+
+def _validar_ids(dados: Mapping[str, Any]) -> None:
+    """Campos ``*_id`` viram destinatário, assunto de e-mail e colunas do banco."""
+    detalhes = [
+        {"campo": f"dados.{campo}", "mensagem": problema}
+        for campo, valor in dados.items()
+        if campo.endswith(_SUFIXO_ID) and (problema := _problema_do_id(valor)) is not None
+    ]
+    if detalhes:
+        raise EnvelopeInvalido(detalhes={"detalhes": detalhes})
+
+
 def validar_envelope(dados: object) -> EnvelopeEvento:
     try:
-        return EnvelopeEvento.model_validate(dados)
+        envelope = EnvelopeEvento.model_validate(dados)
     except ValidationError as erro:
         detalhes = [
             {
@@ -50,12 +89,23 @@ def validar_envelope(dados: object) -> EnvelopeEvento:
             for item in erro.errors(include_input=False, include_url=False)
         ]
         raise EnvelopeInvalido(detalhes={"detalhes": detalhes}) from None
+    _validar_ids(envelope.dados)
+    return envelope
 
 
-async def receber_evento_externo(uow: UnidadeDeTrabalho, dados: object) -> EventoRecebido:
+def exigir_tipo_permitido(tipo: str, papel: str) -> None:
+    prefixo = tipo.split(".", 1)[0]
+    if prefixo in PREFIXOS_RESERVADOS:
+        raise TipoDeEventoReservado(detalhes={"tipo": tipo})
+    if papel != PAPEL_ADMIN and prefixo not in PREFIXOS_POR_PAPEL.get(papel, frozenset()):
+        raise TipoDeEventoNaoPermitido(detalhes={"tipo": tipo, "papel": papel})
+
+
+async def receber_evento_externo(
+    uow: UnidadeDeTrabalho, dados: object, *, papel: str
+) -> EventoRecebido:
     envelope = validar_envelope(dados)
-    if envelope.tipo.split(".", 1)[0] in PREFIXOS_RESERVADOS:
-        raise TipoDeEventoReservado(detalhes={"tipo": envelope.tipo})
+    exigir_tipo_permitido(envelope.tipo, papel)
     async with uow:
         novo = await uow.eventos_externos.registrar_se_novo(envelope)
         await uow.commit()

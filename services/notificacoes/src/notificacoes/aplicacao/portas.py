@@ -32,7 +32,13 @@ class RepositorioNotificacoes(Protocol):
 class RepositorioAssinaturas(Protocol):
     async def adicionar(self, assinatura: AssinaturaWebhook) -> None: ...
 
-    async def obter(self, assinatura_id: uuid.UUID) -> AssinaturaWebhook | None: ...
+    async def obter(self, assinatura_id: uuid.UUID) -> AssinaturaWebhook | None:
+        """Sem o segredo (``segredo=None``): ele só é decifrado na entrega."""
+        ...
+
+    async def obter_segredo(self, assinatura_id: uuid.UUID) -> str:
+        """Segredo em claro. ``SegredoIlegivel`` se não decifra (chave trocada)."""
+        ...
 
     async def atualizar(self, assinatura: AssinaturaWebhook) -> None: ...
 
@@ -159,6 +165,10 @@ class EntregadorDeWebhook(Protocol):
     ) -> ResultadoEntrega:
         """Nunca levanta exceção: timeout e erro de rede viram ``ResultadoEntrega.erro``."""
         ...
+
+
+class SegredoIlegivel(Exception):
+    """O segredo cifrado não abre com a chave atual (chave trocada ou dado corrompido)."""
 
 
 class CifradorDeSegredos(Protocol):

@@ -53,3 +53,15 @@ def test_openapi_documenta_as_rotas_da_spec() -> None:
     } <= set(caminhos)
     assert {"202", "400", "401", "403"} <= set(caminhos["/v1/eventos"]["post"]["responses"])
     assert "204" in caminhos["/v1/webhooks/{assinatura_id}"]["delete"]["responses"]
+
+
+def test_contratos_documentam_6_tentativas_e_retry_da_fila_de_eventos() -> None:
+    documento = json.loads(asyncapi_json(criar_broker_documentado(), titulo="x", versao="1"))
+    canais = documento["channels"]
+    assert "notificacoes.eventos.retry.1" in canais
+    assert "6 tentativas (1 inicial + 5 retentativas)" in canais["notificacoes.dlq"]["description"]
+    assert "6 tentativas" in canais["notificacoes.webhooks"]["description"]
+    app = criar_app(Config(token_servico_segredo=SecretStr("contratos-" + "x" * 32)))
+    caminhos = json.loads(openapi_json(app))["paths"]
+    entregas = caminhos["/v1/webhooks/{assinatura_id}/entregas"]["get"]
+    assert "6 tentativas (1 inicial + 5 retentativas)" in entregas["description"]

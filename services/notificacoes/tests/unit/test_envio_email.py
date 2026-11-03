@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from notificacoes.adaptadores.email_smtp import EnviadorSmtp
 from notificacoes.adaptadores.memoria import (
     ArmazenamentoEmMemoria,
     EnviadorDeEmailEmMemoria,
@@ -163,3 +164,42 @@ async def test_notificacao_ja_enviada_ou_inexistente_e_ignorada() -> None:
     inexistente = Tarefa(TIPO_TAREFA_EMAIL, uuid.uuid4(), tarefa.evento)
     assert (await caso.executar(inexistente)).tipo is TipoDesfecho.IGNORADA
     assert len(enviador.enviados) == 1
+
+
+async def test_pedido_com_quebra_de_linha_no_assunto_falha_definitivamente() -> None:
+    """O EmailMessage levanta ValueError no Subject; isso não pode virar exceção solta."""
+    armazenamento, tarefa = _cenario(dados={**APROVADO, "pedido_id": "ped-1\nBcc: x@exemplo.com"})
+    smtp = EnviadorSmtp(host="127.0.0.1", porta=1, remetente="n@x.local", timeout_segundos=0.5)
+    caso = EnviarEmail(
+        lambda: UnidadeDeTrabalhoEmMemoria(armazenamento),
+        PerfisEmMemoria({"cliente-1": PERFIL}),
+        smtp,
+        max_retentativas=5,
+        agora=lambda: AGORA,
+    )
+    desfecho = await caso.executar(tarefa)
+    assert desfecho.tipo is TipoDesfecho.DESISTIR
+    notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
+    assert (notificacao.status, notificacao.tentativas) == (StatusNotificacao.FALHOU, 1)
+
+
+class EnviadorQueRecusaCabecalho:
+    async def enviar(self, *, para: str, assunto: str, corpo: str) -> None:
+        raise ValueError("Header values may not contain linefeed or carriage return characters")
+
+
+async def test_valueerror_do_enviador_e_falha_definitiva() -> None:
+    armazenamento, tarefa = _cenario()
+    caso = EnviarEmail(
+        lambda: UnidadeDeTrabalhoEmMemoria(armazenamento),
+        PerfisEmMemoria({"cliente-1": PERFIL}),
+        EnviadorQueRecusaCabecalho(),
+        max_retentativas=5,
+        agora=lambda: AGORA,
+    )
+    desfecho = await caso.executar(tarefa)
+    assert desfecho.tipo is TipoDesfecho.DESISTIR
+    assert desfecho.motivo is not None
+    assert desfecho.motivo.startswith("ValueError")
+    notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
+    assert notificacao.status is StatusNotificacao.FALHOU

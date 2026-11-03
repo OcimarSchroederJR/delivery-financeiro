@@ -5,7 +5,12 @@ from typing import Any
 
 from faststream.rabbit import RabbitBroker
 
-from notificacoes.adaptadores.mensageria.topologia import FILA_DLQ, FILAS_DE_TAREFA, nome_fila_retry
+from notificacoes.adaptadores.mensageria.topologia import (
+    FILA_DLQ,
+    FILAS_DE_TAREFA,
+    HEADER_FALHAS_INESPERADAS,
+    nome_fila_retry,
+)
 from plataforma.correlation import HEADER_CORRELATION_ID
 from plataforma.envelope import EnvelopeEvento
 
@@ -13,9 +18,18 @@ TAMANHO_MAXIMO_MOTIVO = 500
 
 
 def _cabecalhos_preservados(cabecalhos: Mapping[str, Any]) -> dict[str, Any]:
-    """Só o correlation id segue adiante (descarta ``x-death`` e afins)."""
+    """Só o correlation id e o contador de falhas inesperadas seguem adiante.
+
+    Descarta ``x-death`` e afins.
+    """
+    preservados: dict[str, Any] = {}
     correlation_id = cabecalhos.get(HEADER_CORRELATION_ID)
-    return {} if correlation_id is None else {HEADER_CORRELATION_ID: str(correlation_id)}
+    if correlation_id is not None:
+        preservados[HEADER_CORRELATION_ID] = str(correlation_id)
+    falhas = cabecalhos.get(HEADER_FALHAS_INESPERADAS)
+    if isinstance(falhas, int):
+        preservados[HEADER_FALHAS_INESPERADAS] = falhas
+    return preservados
 
 
 class PublicadorDeTarefas:

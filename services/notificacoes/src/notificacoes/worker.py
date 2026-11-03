@@ -44,7 +44,10 @@ async def executar(config: Config, parar: asyncio.Event) -> None:
         credencial=credencial,
         ttl_segundos=config.perfis_cache_ttl_segundos,
     )
-    entregador = EntregadorHttpx(timeout_segundos=config.webhook_timeout_segundos)
+    entregador = EntregadorHttpx(
+        timeout_segundos=config.webhook_timeout_segundos,
+        permitir_rede_interna=config.politica_de_url().permitir_rede_interna,
+    )
     enviador = EnviadorSmtp(
         host=config.smtp_host,
         porta=config.smtp_porta,
@@ -69,6 +72,8 @@ async def executar(config: Config, parar: asyncio.Event) -> None:
             ).executar,
         ),
         EncaminhadorDeFalhas(broker_consumo),
+        max_falhas=config.max_retentativas,
+        prefetch=config.consumidor_prefetch,
         pausa_em_erro=config.consumidor_pausa_em_erro_segundos,
     )
     relays = (

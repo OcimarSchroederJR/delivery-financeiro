@@ -33,6 +33,8 @@ class Config(ConfiguracaoBase):
     )
     relay_intervalo_segundos: float = Field(default=1.0, gt=0)
     consumidor_pausa_em_erro_segundos: float = Field(default=1.0, ge=0)
+    # Mensagens em processamento ao mesmo tempo por fila (prefetch do canal).
+    consumidor_prefetch: int = Field(default=10, ge=1, le=100)
 
     @model_validator(mode="after")
     def exigir_chave_de_cifragem_em_producao(self) -> Self:

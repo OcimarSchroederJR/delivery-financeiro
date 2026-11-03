@@ -36,12 +36,49 @@ async def test_aceita_evento_e_deduplica(
     assert len(armazenamento.eventos_externos) == 1
 
 
-@pytest.mark.parametrize("papel", ["loja", "entregador", "admin"])
+@pytest.mark.parametrize(
+    ("papel", "tipo"),
+    [
+        ("entregador", "entrega.concluida"),
+        ("loja", "pedido.criado"),
+        ("admin", "entrega.concluida"),
+        ("admin", "pedido.criado"),
+        ("admin", "cardapio.atualizado"),
+    ],
+)
 async def test_papeis_que_podem_publicar(
-    api: httpx.AsyncClient, bearer: Bearer, papel: str
+    api: httpx.AsyncClient, bearer: Bearer, papel: str, tipo: str
 ) -> None:
-    resposta = await api.post("/v1/eventos", json=_envelope(), headers=bearer("sistema-1", papel))
+    resposta = await api.post(
+        "/v1/eventos", json=_envelope(tipo=tipo), headers=bearer("sistema-1", papel)
+    )
     assert resposta.status_code == 202
+
+
+@pytest.mark.parametrize(
+    ("papel", "tipo"),
+    [
+        ("entregador", "pedido.criado"),
+        ("entregador", "cardapio.atualizado"),
+        ("loja", "entrega.concluida"),
+        ("loja", "cardapio.atualizado"),
+    ],
+)
+async def test_tipo_fora_do_papel_403(
+    api: httpx.AsyncClient,
+    armazenamento: ArmazenamentoEmMemoria,
+    bearer: Bearer,
+    papel: str,
+    tipo: str,
+) -> None:
+    resposta = await api.post(
+        "/v1/eventos", json=_envelope(tipo=tipo), headers=bearer("sistema-1", papel)
+    )
+    assert (resposta.status_code, resposta.json()["codigo"]) == (
+        403,
+        "TIPO_DE_EVENTO_NAO_PERMITIDO",
+    )
+    assert armazenamento.eventos_externos == {}
 
 
 async def test_cliente_e_servico_nao_publicam(api: httpx.AsyncClient, bearer: Bearer) -> None:
@@ -80,7 +117,7 @@ async def test_envelope_invalido_400(api: httpx.AsyncClient, bearer: Bearer, cor
 
 
 async def test_envelope_grande_400(api: httpx.AsyncClient, bearer: Bearer) -> None:
-    corpo = _envelope(dados={"texto": "a" * 70_000})
+    corpo = _envelope(tipo="pedido.criado", dados={"texto": "a" * 70_000})
     resposta = await api.post("/v1/eventos", json=corpo, headers=bearer("l1", "loja"))
     assert resposta.status_code == 400
 
@@ -92,3 +129,15 @@ async def test_openapi_documenta_envelope_e_status(api: httpx.AsyncClient) -> No
         esquema["properties"]
     )
     assert {"202", "400", "401", "403"} <= set(operacao["responses"])
+    assert "TIPO_DE_EVENTO_NAO_PERMITIDO" in operacao["description"]
+    assert "entregador" in operacao["description"]
+
+
+async def test_eventos_dados_com_id_invalido_400(api: httpx.AsyncClient, bearer: Bearer) -> None:
+    corpo = _envelope(dados={"pedido_id": "ped-1\nX", "cliente_id": "c" * 200})
+    resposta = await api.post("/v1/eventos", json=corpo, headers=bearer("logistica", "entregador"))
+    assert (resposta.status_code, resposta.json()["codigo"]) == (400, "ENVELOPE_INVALIDO")
+    assert {item["campo"] for item in resposta.json()["detalhes"]} == {
+        "dados.pedido_id",
+        "dados.cliente_id",
+    }

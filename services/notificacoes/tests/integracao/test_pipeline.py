@@ -1,4 +1,6 @@
+import asyncio
 import json
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -162,3 +164,31 @@ async def test_evento_sem_template_nem_assinatura_so_passa_pela_inbox(
 
     await esperar_ate(na_inbox)
     assert await consultar("SELECT id FROM notificacoes") == []
+
+
+async def test_inscrito_lento_nao_atrasa_a_entrega_de_outro(
+    worker: None,
+    externos: respx.MockRouter,
+    assinar: Callable[..., Awaitable[Any]],
+    publicar_evento: Callable[[EnvelopeEvento], Awaitable[None]],
+    esperar_ate: Esperar,
+) -> None:
+    async def responde_devagar(_requisicao: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(3)
+        return httpx.Response(204)
+
+    externos.post("https://lento.teste/hook").mock(side_effect=responde_devagar)
+    rapido = externos.post("https://rapido.teste/hook").mock(return_value=httpx.Response(204))
+    await assinar(["pedido.lento"], url="https://lento.teste/hook")
+    await assinar(["pedido.rapido"], url="https://rapido.teste/hook")
+
+    await publicar_evento(EnvelopeEvento.novo("pedido.lento", {"pedido_id": "p-1"}))
+    await asyncio.sleep(0.3)  # a entrega lenta já está em andamento
+    inicio = time.monotonic()
+    await publicar_evento(EnvelopeEvento.novo("pedido.rapido", {"pedido_id": "p-2"}))
+
+    async def entregue() -> bool:
+        return rapido.called
+
+    await esperar_ate(entregue, prazo_segundos=10)
+    assert time.monotonic() - inicio < 1.5

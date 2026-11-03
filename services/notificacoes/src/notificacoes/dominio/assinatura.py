@@ -24,7 +24,7 @@ class AssinaturaWebhook:
     id: uuid.UUID
     url: str
     eventos: tuple[str, ...]
-    segredo: str = field(repr=False)
+    segredo: str | None = field(repr=False)  # None = não carregado (só na entrega)
     ativa: bool
     criado_por: str
     somente_proprios: bool

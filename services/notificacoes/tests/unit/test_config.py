@@ -47,3 +47,7 @@ def test_politica_de_url_por_ambiente() -> None:
     assert _config().politica_de_url() == PoliticaDeUrl(True, True)
     producao = _config(ambiente="producao", webhook_segredo_cifragem=SecretStr("c" * 32))
     assert producao.politica_de_url() == PoliticaDeUrl(False, False)
+
+
+def test_prefetch_padrao_dos_consumidores() -> None:
+    assert _config().consumidor_prefetch == 10

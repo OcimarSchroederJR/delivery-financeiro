@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from notificacoes.adaptadores.memoria import (
@@ -132,3 +133,61 @@ async def test_notificacao_finalizada_e_ignorada() -> None:
     await caso.executar(tarefa)
     assert (await caso.executar(tarefa)).tipo is TipoDesfecho.IGNORADA
     assert len(entregador.chamadas) == 1
+
+
+async def test_segredo_ilegivel_falha_so_aquela_assinatura() -> None:
+    armazenamento, assinatura_ruim, tarefa_ruim = _cenario()
+    armazenamento.assinaturas[assinatura_ruim.id] = replace(assinatura_ruim, segredo=None)
+    _, assinatura_boa, tarefa_boa = _cenario()
+    armazenamento.assinaturas[assinatura_boa.id] = assinatura_boa
+    notificacao_boa = Notificacao.para_webhook(
+        mensagem_id_origem=tarefa_boa.evento.mensagem_id,
+        tipo_evento=tarefa_boa.evento.tipo,
+        assinatura=assinatura_boa,
+        agora=AGORA,
+    )
+    armazenamento.notificacoes[notificacao_boa.id] = notificacao_boa
+    entregador = EntregadorDeWebhookEmMemoria()
+    caso = _caso(armazenamento, entregador)
+
+    desfecho_ruim = await caso.executar(tarefa_ruim)
+    desfecho_bom = await caso.executar(
+        Tarefa(TIPO_TAREFA_WEBHOOK, notificacao_boa.id, tarefa_boa.evento)
+    )
+
+    assert desfecho_ruim.tipo is TipoDesfecho.DESISTIR
+    assert desfecho_bom == Desfecho.concluida()
+    assert [chamada.url for chamada in entregador.chamadas] == [assinatura_boa.url]
+    ruim = armazenamento.notificacoes[tarefa_ruim.notificacao_id]
+    assert ruim.status is StatusNotificacao.FALHOU
+    assert ruim.ultimo_erro is not None
+    assert "Segredo da assinatura ilegível" in ruim.ultimo_erro
+    [entrega_ruim] = [e for e in armazenamento.entregas if e.assinatura_id == assinatura_ruim.id]
+    assert (entrega_ruim.status_http, entrega_ruim.erro) == (None, ruim.ultimo_erro)
+
+
+async def test_entrega_concorrente_que_ja_concluiu_vira_ignorada() -> None:
+    """Mensagem duplicada: outra entrega terminou enquanto esta chamava o receptor."""
+    armazenamento, _, tarefa = _cenario()
+
+    class EntregadorComConcorrente:
+        async def entregar(self, url: str, corpo: bytes, cabecalhos: object) -> ResultadoEntrega:
+            async with UnidadeDeTrabalhoEmMemoria(armazenamento) as uow:
+                outra = await uow.notificacoes.obter_para_atualizar(tarefa.notificacao_id)
+                assert outra is not None
+                outra.registrar_envio(agora=AGORA)
+                await uow.notificacoes.atualizar(outra)
+                await uow.commit()
+            return ResultadoEntrega(status_http=204, duracao_ms=1)
+
+    caso = EntregarWebhook(
+        lambda: UnidadeDeTrabalhoEmMemoria(armazenamento),
+        EntregadorComConcorrente(),
+        max_retentativas=5,
+        agora=lambda: AGORA,
+    )
+    desfecho = await caso.executar(tarefa)
+    assert desfecho.tipo is TipoDesfecho.IGNORADA
+    assert len(armazenamento.entregas) == 1  # a tentativa fica registrada
+    notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
+    assert (notificacao.status, notificacao.tentativas) == (StatusNotificacao.ENVIADA, 1)

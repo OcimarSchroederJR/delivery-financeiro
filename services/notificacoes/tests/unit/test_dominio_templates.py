@@ -53,7 +53,7 @@ EXEMPLOS: dict[str, dict[str, Any]] = {
     "disputa.estorno_falhou": {
         "disputa_id": "disp-1",
         "pedido_id": "ped-4",
-        "motivo": "pagamento_nao_estornavel",
+        "motivo": "PAGAMENTO_NAO_ESTORNAVEL",
     },
     "entrega.concluida": {
         "pedido_id": "ped-3",
@@ -144,3 +144,45 @@ def test_valor_com_chaves_nao_e_interpretado() -> None:
     assert modelo is not None
     dados = {**EXEMPLOS["pagamento.recusado"], "motivo": "{nome} {0}"}
     assert "Motivo: {nome} {0}." in modelo.renderizar(dados, nome="Ana").corpo
+
+
+@pytest.mark.parametrize("pedido_id", ["ped-1\nBcc: vitima@exemplo.com", "ped\r1", "ped\u20281"])
+def test_assunto_com_quebra_de_linha_e_dado_insuficiente(pedido_id: str) -> None:
+    modelo = modelo_para("pagamento.aprovado")
+    assert modelo is not None
+    with pytest.raises(DadosDoEventoInsuficientes):
+        modelo.renderizar({**EXEMPLOS["pagamento.aprovado"], "pedido_id": pedido_id}, nome="Ana")
+
+
+def _estorno_falhou(motivo: str) -> tuple[str, str]:
+    modelo = modelo_para("disputa.estorno_falhou")
+    assert modelo is not None
+    dados = {"disputa_id": "disp-1", "pedido_id": "ped-4", "motivo": motivo}
+    email = modelo.renderizar(dados, nome="equipe de operações")
+    return email.assunto, email.corpo
+
+
+def test_estorno_com_resultado_incerto_avisa_que_pode_ter_sido_feito() -> None:
+    assunto, corpo = _estorno_falhou("RESULTADO_INCERTO")
+    assert "resultado incerto" in assunto.lower()
+    assert "pode ter sido efetuado" in corpo
+    assert "GET /v1/pagamentos?pedido_id=ped-4" in corpo
+    assert "GET /v1/pagamentos/<id>/estornos" in corpo
+    assert "antes de qualquer ação manual" in corpo.lower()
+    assert "falhou definitivamente" not in corpo
+
+
+@pytest.mark.parametrize(
+    ("motivo", "trecho"),
+    [
+        ("PAGAMENTO_NAO_ESTORNAVEL", "não pode ser estornado"),
+        ("VALOR_EXCEDE_SALDO_ESTORNAVEL", "maior que o saldo estornável"),
+        ("HTTP_404", "código HTTP_404"),
+    ],
+)
+def test_estorno_recusado_tem_texto_por_motivo(motivo: str, trecho: str) -> None:
+    assunto, corpo = _estorno_falhou(motivo)
+    assert "recusado" in assunto.lower()
+    assert trecho in corpo
+    assert "Nenhum valor foi estornado" in corpo
+    assert "pode ter sido efetuado" not in corpo

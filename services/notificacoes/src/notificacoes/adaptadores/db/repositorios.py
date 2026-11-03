@@ -15,7 +15,7 @@ from notificacoes.adaptadores.db.modelos import (
     NotificacaoLinha,
     TarefaSaida,
 )
-from notificacoes.aplicacao.portas import CifradorDeSegredos
+from notificacoes.aplicacao.portas import CifradorDeSegredos, SegredoIlegivel
 from notificacoes.aplicacao.tarefas import Tarefa
 from notificacoes.dominio.assinatura import AssinaturaWebhook
 from notificacoes.dominio.entrega import EntregaWebhook
@@ -114,7 +114,7 @@ class RepositorioAssinaturasSql:
             id=linha.id,
             url=linha.url,
             eventos=tuple(linha.eventos),
-            segredo=self._cifrador.decifrar(linha.segredo_cifrado),
+            segredo=None,  # decifrado só em obter_segredo (na entrega)
             ativa=linha.ativa,
             criado_por=linha.criado_por,
             somente_proprios=linha.somente_proprios,
@@ -122,6 +122,8 @@ class RepositorioAssinaturasSql:
         )
 
     async def adicionar(self, assinatura: AssinaturaWebhook) -> None:
+        if assinatura.segredo is None:
+            raise ValueError("Assinatura nova precisa do segredo em claro.")
         self._sessao.add(
             AssinaturaWebhookLinha(
                 id=assinatura.id,
@@ -138,6 +140,16 @@ class RepositorioAssinaturasSql:
     async def obter(self, assinatura_id: uuid.UUID) -> AssinaturaWebhook | None:
         linha = await self._sessao.get(AssinaturaWebhookLinha, assinatura_id)
         return None if linha is None else self._assinatura(linha)
+
+    async def obter_segredo(self, assinatura_id: uuid.UUID) -> str:
+        cifrado = await self._sessao.scalar(
+            select(AssinaturaWebhookLinha.segredo_cifrado).where(
+                AssinaturaWebhookLinha.id == assinatura_id
+            )
+        )
+        if cifrado is None:
+            raise SegredoIlegivel(f"Assinatura {assinatura_id} sem segredo.")
+        return self._cifrador.decifrar(cifrado)
 
     async def atualizar(self, assinatura: AssinaturaWebhook) -> None:
         await self._sessao.execute(
