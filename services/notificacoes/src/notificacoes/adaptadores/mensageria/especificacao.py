@@ -15,6 +15,7 @@ from notificacoes.adaptadores.mensageria.topologia import (
     FILA_EMAILS,
     FILA_EVENTOS,
     FILA_WEBHOOKS,
+    FILAS_COM_RETRY,
     fila_de_tarefas,
     fila_dlq,
     fila_eventos,
@@ -42,11 +43,18 @@ class EnvelopeTarefa(BaseModel):
     dados: DadosTarefa
 
 
+TENTATIVAS = (
+    "São até 6 tentativas (1 inicial + 5 retentativas, uma por fila retry.N); "
+    "na 6ª falha a notificação fica 'falhou' e a mensagem vai para notificacoes.dlq."
+)
+
+
 def criar_broker_documentado() -> RabbitBroker:
     broker = criar_broker_especificacao(
         "Notificações: consome todos os eventos de financeiro.eventos (bind #), envia "
         "e-mails e webhooks assinados com HMAC, com retry por TTL (1 s, 5 s, 30 s, 2 min, "
-        "10 min) e DLQ, e republica os eventos externos recebidos em POST /v1/eventos."
+        "10 min) e DLQ, e republica os eventos externos recebidos em POST /v1/eventos. "
+        + TENTATIVAS
     )
 
     @broker.subscriber(
@@ -54,14 +62,17 @@ def criar_broker_documentado() -> RabbitBroker:
         EXCHANGE_EVENTOS,
         title=FILA_EVENTOS,
         description="Todos os eventos (bind #). Inbox por mensagem_id; ack depois do commit. "
-        "Mensagem inválida vai para notificacoes.dlq.",
+        "Mensagem inválida vai para notificacoes.dlq. Exceção inesperada vai para "
+        "notificacoes.eventos.retry.N (header x-falhas-inesperadas) e, depois de "
+        "6 tentativas, para a DLQ.",
     )
     async def consumir_eventos(envelope: EnvelopeEvento) -> None: ...
 
     @broker.subscriber(
         fila_de_tarefas(FILA_EMAILS),
         title=FILA_EMAILS,
-        description="Tarefas de e-mail: busca o perfil na Eq. 1 (cache de 5 min) e envia por SMTP.",
+        description="Tarefas de e-mail: busca o perfil na Eq. 1 (cache de 5 min) e envia por "
+        "SMTP. " + TENTATIVAS,
     )
     async def consumir_emails(tarefa: EnvelopeTarefa) -> None: ...
 
@@ -69,7 +80,7 @@ def criar_broker_documentado() -> RabbitBroker:
         fila_de_tarefas(FILA_WEBHOOKS),
         title=FILA_WEBHOOKS,
         description="Tarefas de webhook: POST com X-Assinatura, X-Assinatura-Timestamp, "
-        "X-Evento-Id e X-Evento-Tipo; sucesso = 2xx em até 5 s.",
+        "X-Evento-Id e X-Evento-Tipo; sucesso = 2xx em até 5 s. " + TENTATIVAS,
     )
     async def consumir_webhooks(tarefa: EnvelopeTarefa) -> None: ...
 
@@ -81,7 +92,7 @@ def criar_broker_documentado() -> RabbitBroker:
         description="Eventos recebidos em POST /v1/eventos (ex.: pedido.*, entrega.*), "
         "republicados pelo outbox com routing key = tipo.",
     )
-    for fila in (FILA_EMAILS, FILA_WEBHOOKS):
+    for fila in FILAS_COM_RETRY:
         for numero, (fila_retry, ttl) in enumerate(
             zip(filas_retry(fila, TTLS_RETRY_PADRAO_MS), TTLS_RETRY_PADRAO_MS, strict=True),
             start=1,
@@ -98,7 +109,8 @@ def criar_broker_documentado() -> RabbitBroker:
         queue=fila_dlq(),
         title=FILA_DLQ,
         schema=EnvelopeTarefa,
-        description="Tarefas que esgotaram as 5 retentativas ou falharam de forma definitiva "
+        description="Tarefas que esgotaram as 6 tentativas (1 inicial + 5 retentativas) ou "
+        "falharam de forma definitiva, eventos com exceção inesperada repetida 6 vezes "
         "(headers x-fila-origem e x-motivo) e mensagens inválidas.",
     )
     return broker

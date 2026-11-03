@@ -3,8 +3,11 @@
 - A chave vale por 24 h (``VALIDADE``).
 - Mesmo corpo: devolve a resposta gravada. Corpo diferente: 422.
 - Reservada e ainda em processamento: 409; se ficou abandonada por mais de
-  ``TEMPO_MAXIMO_PROCESSAMENTO`` (processo morto), pode ser reassumida. Isso é
-  seguro porque a conclusão da chave é gravada na mesma transação do efeito.
+  ``TEMPO_MAXIMO_PROCESSAMENTO`` (processo morto ou travado), pode ser reassumida.
+  Cada reserva tem um ``dono`` (UUID) novo, e reassumir troca o dono. A conclusão
+  da chave é gravada na transação do efeito e só vale para o dono atual: se quem
+  perdeu a reserva retomar, a conclusão não acha a reserva dele e o efeito é
+  desfeito (rollback). Liberar a chave (5xx) também só apaga a reserva do dono.
 - O hash é HMAC-SHA256 com chave secreta: o corpo pode conter o número do cartão
   e um SHA-256 puro seria quebrável por força bruta.
 """
@@ -14,10 +17,11 @@ import hmac
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any, Self
+from uuid import UUID, uuid4
 
 from pagamentos.dominio.erros import IdempotencyKeyAusente, IdempotencyKeyInvalida
 
@@ -60,15 +64,26 @@ class RegistroIdempotencia:
     criado_em: datetime
     status_resposta: int | None = None
     corpo_resposta: dict[str, Any] | None = None
+    dono: UUID = field(default_factory=uuid4)
 
     @classmethod
-    def reservar(cls, *, escopo: str, chave: str, hash_requisicao: str, agora: datetime) -> Self:
+    def reservar(
+        cls,
+        *,
+        escopo: str,
+        chave: str,
+        hash_requisicao: str,
+        agora: datetime,
+        dono: UUID | None = None,
+    ) -> Self:
+        """Nova reserva ``em_processamento`` com um dono novo (ou o informado)."""
         return cls(
             escopo=escopo,
             chave=chave,
             hash_requisicao=hash_requisicao,
             status=StatusChave.EM_PROCESSAMENTO,
             criado_em=agora,
+            dono=dono or uuid4(),
         )
 
     def expirado(self, agora: datetime) -> bool:

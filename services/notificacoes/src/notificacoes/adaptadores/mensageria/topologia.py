@@ -3,7 +3,9 @@
 - ``notificacoes.eventos``: bind ``#`` em ``financeiro.eventos``.
 - ``notificacoes.emails`` / ``notificacoes.webhooks``: tarefas de entrega.
 - ``<fila>.retry.N``: TTL por fila; ao expirar, a mensagem volta (dead-letter
-  pelo exchange padrão) para ``<fila>``.
+  pelo exchange padrão) para ``<fila>``. As três filas principais têm retry: as
+  de tarefa para falhas de entrega e todas para exceções inesperadas no
+  consumidor (contador no header ``x-falhas-inesperadas``).
 - ``notificacoes.dlq``: esgotadas, falhas definitivas e mensagens inválidas
   (as filas principais mandam para cá o que recebe ``reject(requeue=False)``).
 """
@@ -21,6 +23,8 @@ FILA_EMAILS = "notificacoes.emails"
 FILA_WEBHOOKS = "notificacoes.webhooks"
 FILA_DLQ = "notificacoes.dlq"
 FILAS_DE_TAREFA = {TIPO_TAREFA_EMAIL: FILA_EMAILS, TIPO_TAREFA_WEBHOOK: FILA_WEBHOOKS}
+FILAS_COM_RETRY = (FILA_EVENTOS, FILA_EMAILS, FILA_WEBHOOKS)
+HEADER_FALHAS_INESPERADAS = "x-falhas-inesperadas"
 
 
 def _rejeitadas_para_dlq() -> ClassicQueueArgs:
@@ -78,5 +82,6 @@ async def declarar_topologia(broker: RabbitBroker, ttls_ms: Sequence[int]) -> No
     await eventos.bind(exchange, routing_key="#")
     for fila in (FILA_EMAILS, FILA_WEBHOOKS):
         await broker.declare_queue(fila_de_tarefas(fila))
+    for fila in FILAS_COM_RETRY:
         for fila_retry in filas_retry(fila, ttls_ms):
             await broker.declare_queue(fila_retry)

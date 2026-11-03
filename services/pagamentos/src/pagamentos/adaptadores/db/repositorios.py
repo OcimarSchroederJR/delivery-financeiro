@@ -106,6 +106,10 @@ class RepositorioPagamentosSql:
         )
         return bool(await self._sessao.scalar(consulta))
 
+    async def travar_pedido(self, pedido_id: str) -> None:
+        # Trava consultiva liberada no fim da transação (commit ou rollback).
+        await self._sessao.execute(select(func.pg_advisory_xact_lock(func.hashtext(pedido_id))))
+
     async def listar(
         self, *, pedido_id: str | None, cliente_id: str | None, deslocamento: int, limite: int
     ) -> tuple[list[Pagamento], int]:
@@ -149,6 +153,7 @@ def _registro(modelo: ChaveIdempotenciaModelo) -> RegistroIdempotencia:
         criado_em=modelo.criado_em,
         status_resposta=modelo.status_resposta,
         corpo_resposta=modelo.corpo_resposta,
+        dono=modelo.dono,
     )
 
 
@@ -179,6 +184,7 @@ class RepositorioChavesIdempotenciaSql:
                 status_resposta=None,
                 corpo_resposta=None,
                 criado_em=registro.criado_em,
+                dono=registro.dono,
             )
         )
         try:
@@ -196,31 +202,42 @@ class RepositorioChavesIdempotenciaSql:
                 status_resposta=None,
                 corpo_resposta=None,
                 criado_em=registro.criado_em,
+                dono=registro.dono,
             )
         )
 
+    @classmethod
+    def _reserva_de(cls, escopo: str, chave: str, dono: UUID) -> list[ColumnElement[bool]]:
+        return [
+            *cls._desta(escopo, chave),
+            ChaveIdempotenciaModelo.dono == dono,
+            ChaveIdempotenciaModelo.status == StatusChave.EM_PROCESSAMENTO.value,
+        ]
+
     async def concluir(
-        self, escopo: str, chave: str, *, status_resposta: int, corpo_resposta: Mapping[str, Any]
-    ) -> None:
-        await self._sessao.execute(
+        self,
+        escopo: str,
+        chave: str,
+        dono: UUID,
+        *,
+        status_resposta: int,
+        corpo_resposta: Mapping[str, Any],
+    ) -> bool:
+        concluida = await self._sessao.scalar(
             update(ChaveIdempotenciaModelo)
-            .where(
-                *self._desta(escopo, chave),
-                ChaveIdempotenciaModelo.status == StatusChave.EM_PROCESSAMENTO.value,
-            )
+            .where(*self._reserva_de(escopo, chave, dono))
             .values(
                 status=StatusChave.CONCLUIDA.value,
                 status_resposta=status_resposta,
                 corpo_resposta=dict(corpo_resposta),
             )
+            .returning(ChaveIdempotenciaModelo.chave)
         )
+        return concluida is not None
 
-    async def remover(self, escopo: str, chave: str) -> None:
+    async def remover(self, escopo: str, chave: str, dono: UUID) -> None:
         await self._sessao.execute(
-            delete(ChaveIdempotenciaModelo).where(
-                *self._desta(escopo, chave),
-                ChaveIdempotenciaModelo.status == StatusChave.EM_PROCESSAMENTO.value,
-            )
+            delete(ChaveIdempotenciaModelo).where(*self._reserva_de(escopo, chave, dono))
         )
 
     async def remover_expiradas(self, antes_de: datetime) -> int:

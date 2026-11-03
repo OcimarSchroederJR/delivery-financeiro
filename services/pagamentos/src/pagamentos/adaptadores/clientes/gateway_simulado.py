@@ -20,12 +20,41 @@ FINAL_RECUSA_SALDO = "0002"
 FINAL_TIMEOUT = "0119"
 
 
+MAXIMO_CHAVES_LEMBRADAS = 10_000
+
+
 class GatewaySimulado:
+    """Idempotente por chave: a mesma ``chave_idempotencia`` não autoriza duas vezes.
+
+    As autorizações por chave ficam em memória (é um simulador), limitadas às
+    ``MAXIMO_CHAVES_LEMBRADAS`` mais recentes. Timeout não é lembrado.
+    """
+
     def __init__(self, *, atraso_timeout: float = 0.0) -> None:
         self._atraso_timeout = atraso_timeout
+        self._por_chave: dict[str, ResultadoAutorizacao] = {}
+        self.autorizacoes_efetivas = 0
 
     async def autorizar(
-        self, *, metodo: MetodoPagamento, valor_centavos: int, cartao: DadosCartao | None
+        self,
+        *,
+        metodo: MetodoPagamento,
+        valor_centavos: int,
+        cartao: DadosCartao | None,
+        chave_idempotencia: str | None = None,
+    ) -> ResultadoAutorizacao:
+        if chave_idempotencia is not None and chave_idempotencia in self._por_chave:
+            return self._por_chave[chave_idempotencia]
+        resultado = await self._decidir(metodo, valor_centavos, cartao)
+        self.autorizacoes_efetivas += 1
+        if chave_idempotencia is not None:
+            if len(self._por_chave) >= MAXIMO_CHAVES_LEMBRADAS:
+                del self._por_chave[next(iter(self._por_chave))]
+            self._por_chave[chave_idempotencia] = resultado
+        return resultado
+
+    async def _decidir(
+        self, metodo: MetodoPagamento, valor_centavos: int, cartao: DadosCartao | None
     ) -> ResultadoAutorizacao:
         if metodo == MetodoPagamento.PIX:
             return ResultadoAutorizacao(aprovado=True)

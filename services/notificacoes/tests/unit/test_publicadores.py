@@ -7,7 +7,12 @@ from notificacoes.adaptadores.mensageria.publicadores import (
     EncaminhadorDeFalhas,
     PublicadorDeTarefas,
 )
-from notificacoes.adaptadores.mensageria.topologia import FILA_DLQ, FILA_EMAILS, FILA_WEBHOOKS
+from notificacoes.adaptadores.mensageria.topologia import (
+    FILA_DLQ,
+    FILA_EMAILS,
+    FILA_WEBHOOKS,
+    HEADER_FALHAS_INESPERADAS,
+)
 from notificacoes.aplicacao.tarefas import TIPO_TAREFA_EMAIL, Tarefa
 from plataforma.envelope import EnvelopeEvento
 
@@ -61,3 +66,12 @@ async def test_encaminhador_reagenda_e_manda_para_dlq_preservando_correlation_id
         "x-fila-origem": FILA_WEBHOOKS,
         "x-motivo": "HTTP 503",
     }
+
+
+async def test_reagendar_preserva_o_contador_de_falhas_inesperadas() -> None:
+    broker = BrokerFalso()
+    await EncaminhadorDeFalhas(broker).reagendar(  # type: ignore[arg-type]
+        FILA_WEBHOOKS, 1, b"{}", {HEADER_FALHAS_INESPERADAS: 1, "x-death": []}
+    )
+    [(_, opcoes)] = broker.publicadas
+    assert opcoes["headers"] == {HEADER_FALHAS_INESPERADAS: 1, "x-retentativa": 1}

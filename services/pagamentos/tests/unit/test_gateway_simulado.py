@@ -59,3 +59,31 @@ async def test_cartao_ausente_e_erro_de_programacao() -> None:
         await GatewaySimulado().autorizar(
             metodo=MetodoPagamento.CARTAO_CREDITO, valor_centavos=1, cartao=None
         )
+
+
+async def test_mesma_chave_devolve_a_mesma_autorizacao_sem_cobrar_de_novo() -> None:
+    gateway = GatewaySimulado()
+    argumentos = {
+        "metodo": MetodoPagamento.CARTAO_CREDITO,
+        "valor_centavos": 4590,
+        "cartao": _cartao("0000"),
+    }
+    primeira = await gateway.autorizar(**argumentos, chave_idempotencia="POST|k-1")
+    segunda = await gateway.autorizar(**argumentos, chave_idempotencia="POST|k-1")
+    assert primeira == segunda == ResultadoAutorizacao(aprovado=True)
+    assert gateway.autorizacoes_efetivas == 1
+    await gateway.autorizar(**argumentos, chave_idempotencia="POST|k-2")
+    await gateway.autorizar(**argumentos)
+    assert gateway.autorizacoes_efetivas == 3
+
+
+async def test_timeout_nao_fica_gravado_para_a_chave() -> None:
+    gateway = GatewaySimulado()
+    for _ in range(2):
+        with pytest.raises(ErroDependenciaIndisponivel):
+            await gateway.autorizar(
+                metodo=MetodoPagamento.CARTAO_CREDITO,
+                valor_centavos=1,
+                cartao=_cartao("0119"),
+                chave_idempotencia="k-to",
+            )

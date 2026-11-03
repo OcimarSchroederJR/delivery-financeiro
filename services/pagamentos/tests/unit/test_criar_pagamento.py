@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 import pytest
@@ -25,6 +26,7 @@ from pagamentos.testes.fakes import (
     ApresentadorFake,
     ConsultaPedidosFake,
     EstadoFake,
+    GatewayComBarreira,
     RelogioFake,
     fabrica_fake,
     pagamento_aprovado,
@@ -192,10 +194,13 @@ async def test_corrida_com_outro_pagamento_vira_pedido_ja_pago() -> None:
 
 async def test_conclui_a_chave_na_mesma_transacao() -> None:
     estado = EstadoFake()
-    estado.chaves[(ESCOPO, "k-1")] = RegistroIdempotencia.reservar(
+    registro = RegistroIdempotencia.reservar(
         escopo=ESCOPO, chave="k-1", hash_requisicao="h", agora=INSTANTE
     )
-    await _caso(estado).executar(_comando(), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1"))
+    estado.chaves[(ESCOPO, "k-1")] = registro
+    await _caso(estado).executar(
+        _comando(), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1", registro.dono)
+    )
     registro = estado.chaves[(ESCOPO, "k-1")]
     assert registro.status == StatusChave.CONCLUIDA
     assert registro.resposta() == (201, {"id": str(ID_FIXO), "status": "aprovado"})
@@ -204,12 +209,13 @@ async def test_conclui_a_chave_na_mesma_transacao() -> None:
 
 async def test_recusa_grava_409_na_chave() -> None:
     estado = EstadoFake()
-    estado.chaves[(ESCOPO, "k-1")] = RegistroIdempotencia.reservar(
+    registro = RegistroIdempotencia.reservar(
         escopo=ESCOPO, chave="k-1", hash_requisicao="h", agora=INSTANTE
     )
+    estado.chaves[(ESCOPO, "k-1")] = registro
     with pytest.raises(PagamentoRecusado):
         await _caso(estado).executar(
-            _comando(final="0002"), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1")
+            _comando(final="0002"), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1", registro.dono)
         )
     status, corpo = estado.chaves[(ESCOPO, "k-1")].resposta()
     assert status == 409
@@ -219,3 +225,46 @@ async def test_recusa_grava_409_na_chave() -> None:
 def test_comando_de_cartao_exige_os_dados_do_cartao() -> None:
     with pytest.raises(ValueError, match="cartão"):
         ComandoCriarPagamento("ped-1", MetodoPagamento.CARTAO_CREDITO)
+
+
+async def test_chaves_diferentes_em_paralelo_chamam_o_gateway_uma_vez() -> None:
+    estado = EstadoFake()
+    gateway = GatewayComBarreira(esperadas=1)
+    caso = _caso(estado, gateway=gateway)
+    tarefas = [asyncio.create_task(caso.executar(_comando(), CLIENTE_1)) for _ in range(2)]
+    await gateway.aguardar_entradas()
+    await asyncio.sleep(0.05)
+    assert gateway.entradas == 1
+    gateway.liberar.set()
+    resultados = await asyncio.gather(*tarefas, return_exceptions=True)
+    assert sorted(type(r).__name__ for r in resultados) == ["Pagamento", "PedidoJaPago"]
+    assert gateway.entradas == 1
+
+
+class GatewayQueAnota:
+    def __init__(self) -> None:
+        self.chaves: list[str | None] = []
+
+    async def autorizar(
+        self,
+        *,
+        metodo: MetodoPagamento,
+        valor_centavos: int,
+        cartao: DadosCartao | None,
+        chave_idempotencia: str | None = None,
+    ) -> ResultadoAutorizacao:
+        self.chaves.append(chave_idempotencia)
+        return ResultadoAutorizacao(aprovado=True)
+
+
+async def test_repassa_a_idempotency_key_ao_gateway() -> None:
+    estado = EstadoFake()
+    registro = RegistroIdempotencia.reservar(
+        escopo=ESCOPO, chave="k-1", hash_requisicao="h", agora=INSTANTE
+    )
+    estado.chaves[(ESCOPO, "k-1")] = registro
+    gateway = GatewayQueAnota()
+    await _caso(estado, gateway=gateway).executar(
+        _comando(), CLIENTE_1, ReservaIdempotencia(ESCOPO, "k-1", registro.dono)
+    )
+    assert gateway.chaves == [f"{ESCOPO}|k-1"]

@@ -18,6 +18,11 @@ class TipoDeEventoReservado(ErroAcessoNegado):
     mensagem_padrao = "Eventos deste tipo só podem ser publicados pelos serviços da Equipe 5."
 
 
+class TipoDeEventoNaoPermitido(ErroAcessoNegado):
+    codigo_padrao = "TIPO_DE_EVENTO_NAO_PERMITIDO"
+    mensagem_padrao = "O seu papel não pode publicar eventos deste tipo."
+
+
 class UrlDeWebhookInvalida(ErroRegraDeNegocio):
     codigo_padrao = "URL_DE_WEBHOOK_INVALIDA"
     mensagem_padrao = "URL de webhook inválida."

@@ -63,6 +63,8 @@ class AssinaturaCriada(AssinaturaSaida):
 
     @classmethod
     def com_segredo(cls, assinatura: AssinaturaWebhook) -> Self:
+        if assinatura.segredo is None:  # pragma: no cover - só chamado na criação
+            raise ValueError("Assinatura sem segredo em claro.")
         return cls(**AssinaturaSaida.de(assinatura).model_dump(), segredo=assinatura.segredo)
 
 

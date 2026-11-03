@@ -77,8 +77,10 @@ async def test_primeira_execucao_reserva_e_chama_a_operacao() -> None:
         chave="k-1", escopo=ESCOPO, dados=DADOS, operacao=operacao
     )
     assert resultado == "ok"
-    assert operacao.reservas == [ReservaIdempotencia(escopo=ESCOPO, chave="k-1")]
     registro = estado.chaves[(ESCOPO, "k-1")]
+    assert operacao.reservas == [
+        ReservaIdempotencia(escopo=ESCOPO, chave="k-1", dono=registro.dono)
+    ]
     # Concluir a chave é responsabilidade da operação, na transação do efeito.
     assert registro.status == StatusChave.EM_PROCESSAMENTO
     assert registro.hash_requisicao == calcular_hash(DADOS, chave=CHAVE_HASH)
@@ -197,7 +199,11 @@ async def test_conclusao_feita_pela_operacao_prevalece() -> None:
     async def operacao(reserva: ReservaIdempotencia) -> str:
         async with UnidadeDeTrabalhoFake(estado) as uow:
             await uow.chaves_idempotencia.concluir(
-                reserva.escopo, reserva.chave, status_resposta=409, corpo_resposta={"de": "op"}
+                reserva.escopo,
+                reserva.chave,
+                reserva.dono,
+                status_resposta=409,
+                corpo_resposta={"de": "op"},
             )
             await uow.commit()
         raise PagamentoRecusado(uuid4(), "saldo_insuficiente")
@@ -236,7 +242,11 @@ async def test_erro_depois_do_efeito_commitado_nao_libera_a_chave(erro: Exceptio
         async with UnidadeDeTrabalhoFake(estado) as uow:
             efeitos.append("estorno")
             await uow.chaves_idempotencia.concluir(
-                reserva.escopo, reserva.chave, status_resposta=201, corpo_resposta={"id": "e-1"}
+                reserva.escopo,
+                reserva.chave,
+                reserva.dono,
+                status_resposta=201,
+                corpo_resposta={"id": "e-1"},
             )
             await uow.commit()
         raise erro

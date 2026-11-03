@@ -35,6 +35,11 @@ router = APIRouter(prefix="/v1/pagamentos", tags=["pagamentos"])
 ESCOPO_CRIAR = "POST /v1/pagamentos"
 
 
+def _escopo_criar(usuario_id: str) -> str:
+    """Escopo por usuário: chaves iguais de usuários diferentes não colidem."""
+    return f"{ESCOPO_CRIAR} usuario={usuario_id}"
+
+
 def _uuid_ou_404(texto: str) -> UUID:
     try:
         return UUID(texto)
@@ -71,7 +76,7 @@ async def criar_pagamento(
 
     resultado = await casos.idempotencia.executar(
         chave=idempotency_key,
-        escopo=ESCOPO_CRIAR,
+        escopo=_escopo_criar(usuario.id),
         dados={"usuario_id": usuario.id, "corpo": corpo.dados_idempotencia()},
         operacao=operar,
     )
@@ -83,7 +88,7 @@ async def criar_pagamento(
 @router.get(
     "",
     response_model=Pagina[PagamentoSaida],
-    responses=respostas_erro(401, 403, 422),
+    responses=respostas_erro(401, 403, 422, 503),
     summary="Lista pagamentos (cliente vê só os seus; admin e serviço veem todos)",
 )
 async def listar_pagamentos(
@@ -106,7 +111,7 @@ async def listar_pagamentos(
 @router.get(
     "/{pagamento_id}",
     response_model=PagamentoSaida,
-    responses=respostas_erro(401, 403, 404),
+    responses=respostas_erro(401, 403, 404, 503),
     summary="Detalha um pagamento",
 )
 async def obter_pagamento(
@@ -124,7 +129,7 @@ def _escopo_estorno(pagamento_id: UUID) -> str:
     "/{pagamento_id}/estornos",
     status_code=201,
     response_model=EstornoCriadoSaida,
-    responses=respostas_erro(400, 401, 403, 404, 409, 422),
+    responses=respostas_erro(400, 401, 403, 404, 409, 422, 503),
     summary="Estorna total ou parcialmente um pagamento",
     description=(
         "Sem `valor_centavos`, estorna o saldo estornável inteiro. Aceita token de serviço "
@@ -160,7 +165,7 @@ async def estornar_pagamento(
 @router.get(
     "/{pagamento_id}/estornos",
     response_model=Pagina[EstornoSaida],
-    responses=respostas_erro(401, 403, 404, 422),
+    responses=respostas_erro(401, 403, 404, 422, 503),
     summary="Lista os estornos de um pagamento",
 )
 async def listar_estornos(

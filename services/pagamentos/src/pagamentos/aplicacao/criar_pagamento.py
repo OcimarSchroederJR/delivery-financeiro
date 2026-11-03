@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from pagamentos.aplicacao.idempotencia import ReservaIdempotencia
+from pagamentos.aplicacao.idempotencia import ReservaIdempotencia, concluir_reserva
 from pagamentos.aplicacao.portas import (
     Apresentador,
     ConsultaPedidos,
@@ -83,19 +83,19 @@ class CriarPagamento:
     ) -> Pagamento:
         pedido = await self._validar_pedido(comando.pedido_id, solicitante)
         async with self._fabrica_uow() as uow:
+            # Trava por pedido até o commit: checagem, gateway e gravação são atômicos,
+            # e outra requisição do mesmo pedido (outra chave) espera e vê o pagamento.
+            await uow.pagamentos.travar_pedido(comando.pedido_id)
             if await uow.pagamentos.existe_efetivado(comando.pedido_id):
                 raise PedidoJaPago()
-        resultado = await self._autorizar(comando, pedido.valor_total_centavos)
-        pagamento = self._registrar(comando, pedido, resultado)
-        async with self._fabrica_uow() as uow:
+            resultado = await self._autorizar(comando, pedido.valor_total_centavos, reserva)
+            pagamento = self._registrar(comando, pedido, resultado)
             await uow.pagamentos.adicionar(pagamento)
             tipo, dados = evento_de_registro(pagamento)
             uow.eventos.registrar(tipo, dados)
             if reserva is not None:
                 status, corpo = self._resposta(pagamento)
-                await uow.chaves_idempotencia.concluir(
-                    reserva.escopo, reserva.chave, status_resposta=status, corpo_resposta=corpo
-                )
+                await concluir_reserva(uow, reserva, status_resposta=status, corpo_resposta=corpo)
             await uow.commit()
         if not pagamento.efetivado:
             _log.info(
@@ -127,13 +127,20 @@ class CriarPagamento:
         return pedido
 
     async def _autorizar(
-        self, comando: ComandoCriarPagamento, valor_centavos: int
+        self,
+        comando: ComandoCriarPagamento,
+        valor_centavos: int,
+        reserva: ReservaIdempotencia | None,
     ) -> ResultadoAutorizacao:
         if exige_analise_antifraude(valor_centavos):
             return ResultadoAutorizacao(aprovado=False, motivo_recusa=MOTIVO_ANTIFRAUDE)
         cartao = comando.cartao if comando.metodo == MetodoPagamento.CARTAO_CREDITO else None
+        chave = None if reserva is None else f"{reserva.escopo}|{reserva.chave}"
         return await self._gateway.autorizar(
-            metodo=comando.metodo, valor_centavos=valor_centavos, cartao=cartao
+            metodo=comando.metodo,
+            valor_centavos=valor_centavos,
+            cartao=cartao,
+            chave_idempotencia=chave,
         )
 
     def _registrar(

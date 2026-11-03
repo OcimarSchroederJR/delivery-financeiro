@@ -2,7 +2,8 @@
 
 Falha transitória (Eq. 1 fora, SMTP fora) → retentativa pelas filas com TTL
 (spec §4.2: "falha ao buscar o perfil … não é perdida"). Falha definitiva
-(perfil inexistente, sem e-mail, evento incompleto) → ``falhou`` + DLQ.
+(perfil inexistente, sem e-mail, evento incompleto, ``ValueError`` do template
+ou do cabeçalho do e-mail) → ``falhou`` + DLQ.
 """
 
 from collections.abc import Callable
@@ -86,7 +87,9 @@ class EnviarEmail:
             destino, nome = await self._destinatario(notificacao)
             email = modelo.renderizar(evento.dados, nome=nome)
             await self._enviador.enviar(para=destino, assunto=email.assunto, corpo=email.corpo)
-        except (PerfilNaoEncontrado, PerfilInvalido, DadosDoEventoInsuficientes) as erro:
+        except (PerfilNaoEncontrado, PerfilInvalido, ValueError) as erro:
+            # ValueError inclui DadosDoEventoInsuficientes e a recusa de cabeçalho
+            # do EmailMessage: dado ruim não melhora com retentativa.
             motivo = descrever_erro(erro)
             notificacao.falhar_definitivamente(motivo)
             return Desfecho.desistir(motivo)
