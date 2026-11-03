@@ -6,11 +6,11 @@ from typing import Self
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from notificacoes.aplicacao.portas import SegredoIlegivel
+
+__all__ = ["CifradorFernet", "SegredoIlegivel"]
+
 _ROTULO = b"notificacoes-webhooks:"
-
-
-class SegredoIlegivel(Exception):
-    """O texto cifrado não abre com a chave atual (chave trocada ou dado corrompido)."""
 
 
 class CifradorFernet:

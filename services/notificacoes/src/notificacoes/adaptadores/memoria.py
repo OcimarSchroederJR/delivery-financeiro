@@ -17,6 +17,7 @@ from notificacoes.aplicacao.portas import (
     Perfil,
     PerfilNaoEncontrado,
     ResultadoEntrega,
+    SegredoIlegivel,
     UnidadeDeTrabalho,
 )
 from notificacoes.aplicacao.tarefas import Tarefa
@@ -79,6 +80,13 @@ class RepositorioAssinaturasEmMemoria:
 
     async def obter(self, assinatura_id: uuid.UUID) -> AssinaturaWebhook | None:
         return self._dados.assinaturas.get(assinatura_id)
+
+    async def obter_segredo(self, assinatura_id: uuid.UUID) -> str:
+        """Em memória, ``segredo=None`` simula um segredo que não decifra."""
+        assinatura = self._dados.assinaturas.get(assinatura_id)
+        if assinatura is None or assinatura.segredo is None:
+            raise SegredoIlegivel(f"Segredo da assinatura {assinatura_id} ilegível.")
+        return assinatura.segredo
 
     async def atualizar(self, assinatura: AssinaturaWebhook) -> None:
         self._dados.assinaturas[assinatura.id] = assinatura

@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from notificacoes.adaptadores.cifrador import CifradorFernet
 from notificacoes.adaptadores.db.modelos import Base
 from notificacoes.adaptadores.db.uow import fabrica_sql
-from notificacoes.aplicacao.portas import FabricaUow
+from notificacoes.aplicacao.portas import FabricaUow, SegredoIlegivel
 from notificacoes.aplicacao.tarefas import TIPO_TAREFA_EMAIL, Tarefa
 from notificacoes.dominio.assinatura import AssinaturaWebhook
 from notificacoes.dominio.entrega import EntregaWebhook
@@ -89,7 +90,37 @@ async def test_segredo_fica_cifrado_no_banco(fabrica_uow: FabricaUow, banco_migr
     assert linha.eventos == ["pagamento.*"]
 
     async with fabrica_uow() as uow:
-        assert await uow.assinaturas.obter(assinatura.id) == assinatura
+        obtida = await uow.assinaturas.obter(assinatura.id)
+        segredo = await uow.assinaturas.obter_segredo(assinatura.id)
+    assert obtida is not None
+    assert obtida.segredo is None  # só é decifrado na entrega
+    assert replace(obtida, segredo=segredo) == assinatura
+
+
+async def test_segredo_ilegivel_nao_derruba_a_listagem(
+    fabrica_uow: FabricaUow, banco_migrado: str
+) -> None:
+    boa, ruim = _assinatura(), _assinatura(criado_por="loja-1")
+    async with fabrica_uow() as uow:
+        await uow.assinaturas.adicionar(boa)
+        await uow.assinaturas.adicionar(ruim)
+        await uow.commit()
+    engine = create_async_engine(banco_migrado)
+    async with engine.begin() as conexao:
+        await conexao.execute(
+            text(
+                "UPDATE assinaturas_webhook SET segredo_cifrado = 'gAAAA-corrompido' WHERE id = :id"
+            ),
+            {"id": ruim.id},
+        )
+    await engine.dispose()
+
+    async with fabrica_uow() as uow:
+        ativas = await uow.assinaturas.listar_ativas()
+        assert await uow.assinaturas.obter_segredo(boa.id) == "segredo-em-claro"
+        with pytest.raises(SegredoIlegivel):
+            await uow.assinaturas.obter_segredo(ruim.id)
+    assert {assinatura.id for assinatura in ativas} == {boa.id, ruim.id}
 
 
 async def test_notificacoes_atualizacao_e_listagem(fabrica_uow: FabricaUow) -> None:

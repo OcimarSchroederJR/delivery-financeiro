@@ -9,7 +9,12 @@ import json
 from collections.abc import Callable
 from datetime import datetime
 
-from notificacoes.aplicacao.portas import EntregadorDeWebhook, FabricaUow, UnidadeDeTrabalho
+from notificacoes.aplicacao.portas import (
+    EntregadorDeWebhook,
+    FabricaUow,
+    SegredoIlegivel,
+    UnidadeDeTrabalho,
+)
 from notificacoes.aplicacao.tarefas import Desfecho, Tarefa
 from notificacoes.dominio.assinatura import AssinaturaWebhook
 from notificacoes.dominio.assinatura_hmac import cabecalhos_da_entrega
@@ -79,9 +84,30 @@ class EntregarWebhook:
         evento: EnvelopeEvento,
     ) -> Desfecho:
         momento = self._agora()
+        try:
+            segredo = await uow.assinaturas.obter_segredo(assinatura.id)
+        except SegredoIlegivel:
+            # Falha definitiva só desta assinatura; as outras seguem normalmente.
+            motivo = (
+                "Segredo da assinatura ilegível (chave de cifragem trocada ou dado "
+                "corrompido); recadastre o webhook."
+            )
+            await uow.entregas.adicionar(
+                EntregaWebhook.registrar(
+                    assinatura_id=assinatura.id,
+                    mensagem_id=evento.mensagem_id,
+                    tentativa=notificacao.tentativas + 1,
+                    status_http=None,
+                    duracao_ms=0,
+                    erro=motivo,
+                    agora=momento,
+                )
+            )
+            notificacao.falhar_definitivamente(motivo)
+            return Desfecho.desistir(motivo)
         corpo = serializar_evento(evento)
         cabecalhos = cabecalhos_da_entrega(
-            segredo=assinatura.segredo,
+            segredo=segredo,
             timestamp=int(momento.timestamp()),
             corpo=corpo,
             evento_id=str(evento.mensagem_id),
