@@ -28,6 +28,14 @@ class RepositorioPagamentos(Protocol):
 
     async def existe_efetivado(self, pedido_id: str) -> bool: ...
 
+    async def travar_pedido(self, pedido_id: str) -> None:
+        """Serializa as operações sobre o pedido até o fim da transação.
+
+        Usada na criação: checagem de "já pago", gateway e gravação ficam numa só
+        transação, e duas requisições para o mesmo pedido nunca autorizam juntas.
+        """
+        ...
+
     async def listar(
         self, *, pedido_id: str | None, cliente_id: str | None, deslocamento: int, limite: int
     ) -> tuple[list[Pagamento], int]:
@@ -126,9 +134,18 @@ class ResultadoAutorizacao:
 
 class GatewayDePagamento(Protocol):
     async def autorizar(
-        self, *, metodo: MetodoPagamento, valor_centavos: int, cartao: DadosCartao | None
+        self,
+        *,
+        metodo: MetodoPagamento,
+        valor_centavos: int,
+        cartao: DadosCartao | None,
+        chave_idempotencia: str | None = None,
     ) -> ResultadoAutorizacao:
-        """Timeout -> ``ErroDependenciaIndisponivel("gateway")``."""
+        """Timeout -> ``ErroDependenciaIndisponivel("gateway")``.
+
+        Com ``chave_idempotencia``, a mesma chave devolve a mesma autorização sem
+        cobrar de novo (repetição depois de timeout ou de reassunção da chave).
+        """
         ...
 
 

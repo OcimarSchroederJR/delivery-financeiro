@@ -72,19 +72,45 @@ class EstadoFake:
     chaves: dict[tuple[str, str], RegistroIdempotencia] = field(default_factory=dict)
     eventos: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     commits: int = 0
+    travas_pedidos: dict[str, asyncio.Lock] = field(default_factory=dict)
+
+
+class _Diario:
+    """O que uma unidade de trabalho tocou (para desfazer só isso) e as travas que segura."""
+
+    def __init__(self) -> None:
+        self.pagamentos: set[UUID] = set()
+        self.chaves: set[tuple[str, str]] = set()
+        self.eventos: list[tuple[str, dict[str, Any]]] = []
+        self.travas: list[asyncio.Lock] = []
+
+    def limpar(self) -> None:
+        self.pagamentos.clear()
+        self.chaves.clear()
+        self.eventos.clear()
+        self.travas.clear()
 
 
 class RepositorioPagamentosFake:
-    def __init__(self, estado: EstadoFake) -> None:
+    def __init__(self, estado: EstadoFake, diario: _Diario | None = None) -> None:
         self._estado = estado
+        self._diario = diario or _Diario()
 
     async def adicionar(self, pagamento: Pagamento) -> None:
         if pagamento.efetivado and await self.existe_efetivado(pagamento.pedido_id):
             raise PedidoJaPago()
+        self._diario.pagamentos.add(pagamento.id)
         self._estado.pagamentos[pagamento.id] = pagamento
 
     async def obter(self, pagamento_id: UUID, *, para_atualizar: bool = False) -> Pagamento | None:
+        self._diario.pagamentos.add(pagamento_id)  # o chamador pode alterar o objeto
         return self._estado.pagamentos.get(pagamento_id)
+
+    async def travar_pedido(self, pedido_id: str) -> None:
+        trava = self._estado.travas_pedidos.setdefault(pedido_id, asyncio.Lock())
+        if trava not in self._diario.travas:
+            await trava.acquire()
+            self._diario.travas.append(trava)
 
     async def existe_efetivado(self, pedido_id: str) -> bool:
         return any(
@@ -104,12 +130,14 @@ class RepositorioPagamentosFake:
         return filtrados[deslocamento : deslocamento + limite], len(filtrados)
 
     async def salvar(self, pagamento: Pagamento) -> None:
+        self._diario.pagamentos.add(pagamento.id)
         self._estado.pagamentos[pagamento.id] = pagamento
 
 
 class RepositorioChavesIdempotenciaFake:
-    def __init__(self, estado: EstadoFake) -> None:
+    def __init__(self, estado: EstadoFake, diario: _Diario | None = None) -> None:
         self._estado = estado
+        self._diario = diario or _Diario()
 
     async def obter(
         self, escopo: str, chave: str, *, para_atualizar: bool = False
@@ -119,9 +147,11 @@ class RepositorioChavesIdempotenciaFake:
     async def reservar(self, registro: RegistroIdempotencia) -> None:
         if (registro.escopo, registro.chave) in self._estado.chaves:
             raise IdempotencyEmProcessamento()
+        self._diario.chaves.add((registro.escopo, registro.chave))
         self._estado.chaves[(registro.escopo, registro.chave)] = registro
 
     async def substituir(self, registro: RegistroIdempotencia) -> None:
+        self._diario.chaves.add((registro.escopo, registro.chave))
         self._estado.chaves[(registro.escopo, registro.chave)] = registro
 
     def _reserva_de(self, escopo: str, chave: str, dono: UUID) -> RegistroIdempotencia | None:
@@ -146,6 +176,7 @@ class RepositorioChavesIdempotenciaFake:
         registro = self._reserva_de(escopo, chave, dono)
         if registro is None:
             return False
+        self._diario.chaves.add((escopo, chave))
         registro.status = StatusChave.CONCLUIDA
         registro.status_resposta = status_resposta
         registro.corpo_resposta = dict(corpo_resposta)
@@ -153,42 +184,52 @@ class RepositorioChavesIdempotenciaFake:
 
     async def remover(self, escopo: str, chave: str, dono: UUID) -> None:
         if self._reserva_de(escopo, chave, dono) is not None:
+            self._diario.chaves.add((escopo, chave))
             del self._estado.chaves[(escopo, chave)]
 
     async def remover_expiradas(self, antes_de: datetime) -> int:
         expiradas = [k for k, r in self._estado.chaves.items() if r.criado_em < antes_de]
         for k in expiradas:
+            self._diario.chaves.add(k)
             del self._estado.chaves[k]
         return len(expiradas)
 
 
 class RegistroDeEventosFake:
-    def __init__(self, estado: EstadoFake) -> None:
+    def __init__(self, estado: EstadoFake, diario: _Diario | None = None) -> None:
         self._estado = estado
+        self._diario = diario or _Diario()
 
     def registrar(self, tipo: str, dados: Mapping[str, Any]) -> None:
-        self._estado.eventos.append((tipo, dict(dados)))
+        evento = (tipo, dict(dados))
+        self._diario.eventos.append(evento)
+        self._estado.eventos.append(evento)
 
 
 class UnidadeDeTrabalhoFake:
-    """Rollback real: guarda uma cópia do estado na entrada e a restaura sem commit."""
+    """Rollback real: sem commit, desfaz só o que esta unidade tocou.
+
+    Guarda uma cópia do estado na entrada e, no rollback, restaura dela apenas os
+    pagamentos e chaves tocados e remove os eventos registrados por esta unidade;
+    commits de outras unidades no meio do caminho são preservados. Travas de pedido
+    são liberadas na saída (como as travas de transação do Postgres).
+    """
 
     def __init__(self, estado: EstadoFake) -> None:
         self._estado = estado
-        self._copia: tuple[
-            dict[UUID, Pagamento],
-            dict[tuple[str, str], RegistroIdempotencia],
-            list[tuple[str, dict[str, Any]]],
-        ] = ({}, {}, [])
+        self._copia: tuple[dict[UUID, Pagamento], dict[tuple[str, str], RegistroIdempotencia]] = (
+            {},
+            {},
+        )
         self._confirmada = False
-        self.pagamentos = RepositorioPagamentosFake(estado)
-        self.chaves_idempotencia = RepositorioChavesIdempotenciaFake(estado)
-        self.eventos = RegistroDeEventosFake(estado)
+        self._diario = _Diario()
+        self.pagamentos = RepositorioPagamentosFake(estado, self._diario)
+        self.chaves_idempotencia = RepositorioChavesIdempotenciaFake(estado, self._diario)
+        self.eventos = RegistroDeEventosFake(estado, self._diario)
 
     async def __aenter__(self) -> Self:
-        self._copia = copy.deepcopy(
-            (self._estado.pagamentos, self._estado.chaves, self._estado.eventos)
-        )
+        self._copia = copy.deepcopy((self._estado.pagamentos, self._estado.chaves))
+        self._diario.limpar()
         self._confirmada = False
         return self
 
@@ -198,8 +239,28 @@ class UnidadeDeTrabalhoFake:
         erro: BaseException | None,
         rastro: TracebackType | None,
     ) -> None:
-        if not self._confirmada:
-            self._estado.pagamentos, self._estado.chaves, self._estado.eventos = self._copia
+        try:
+            if not self._confirmada:
+                self._desfazer()
+        finally:
+            for trava in self._diario.travas:
+                trava.release()
+            self._diario.limpar()
+
+    def _desfazer(self) -> None:
+        pagamentos, chaves = self._copia
+        for pagamento_id in self._diario.pagamentos:
+            if pagamento_id in pagamentos:
+                self._estado.pagamentos[pagamento_id] = pagamentos[pagamento_id]
+            else:
+                self._estado.pagamentos.pop(pagamento_id, None)
+        for chave in self._diario.chaves:
+            if chave in chaves:
+                self._estado.chaves[chave] = chaves[chave]
+            else:
+                self._estado.chaves.pop(chave, None)
+        proprios = {id(evento) for evento in self._diario.eventos}
+        self._estado.eventos = [e for e in self._estado.eventos if id(e) not in proprios]
 
     async def commit(self) -> None:
         self._confirmada = True
@@ -262,7 +323,12 @@ class GatewayComBarreira:
         self._todas = asyncio.Event()
 
     async def autorizar(
-        self, *, metodo: MetodoPagamento, valor_centavos: int, cartao: DadosCartao | None
+        self,
+        *,
+        metodo: MetodoPagamento,
+        valor_centavos: int,
+        cartao: DadosCartao | None,
+        chave_idempotencia: str | None = None,
     ) -> ResultadoAutorizacao:
         self.entradas += 1
         if self.entradas >= self._esperadas:

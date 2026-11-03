@@ -106,6 +106,10 @@ class RepositorioPagamentosSql:
         )
         return bool(await self._sessao.scalar(consulta))
 
+    async def travar_pedido(self, pedido_id: str) -> None:
+        # Trava consultiva liberada no fim da transação (commit ou rollback).
+        await self._sessao.execute(select(func.pg_advisory_xact_lock(func.hashtext(pedido_id))))
+
     async def listar(
         self, *, pedido_id: str | None, cliente_id: str | None, deslocamento: int, limite: int
     ) -> tuple[list[Pagamento], int]:

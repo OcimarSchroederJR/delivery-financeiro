@@ -156,7 +156,7 @@ async def test_mesma_chave_em_paralelo(
     assert await _escalar(banco_migrado, "SELECT count(*) FROM pagamentos") == 1
 
 
-@pytest.mark.parametrize("gateway", [2], indirect=True)
+@pytest.mark.parametrize("gateway", [1], indirect=True)
 async def test_chaves_diferentes_mesmo_pedido_em_paralelo(
     api_real: httpx.AsyncClient, gateway: GatewayComBarreira, banco_migrado: str
 ) -> None:
@@ -167,8 +167,11 @@ async def test_chaves_diferentes_mesmo_pedido_em_paralelo(
         for chave in ("k-a", "k-b")
     ]
     await gateway.aguardar_entradas()
+    await asyncio.sleep(0.5)  # tempo para a outra requisição chegar à trava do pedido
+    assert gateway.entradas == 1
     gateway.liberar.set()
     respostas = await asyncio.gather(*tarefas)
+    assert gateway.entradas == 1  # a perdedora nem chama o gateway
     assert sorted(r.status_code for r in respostas) == [201, 409]
     perdedora = next(r for r in respostas if r.status_code == 409)
     assert perdedora.json()["codigo"] == "PEDIDO_JA_PAGO"
