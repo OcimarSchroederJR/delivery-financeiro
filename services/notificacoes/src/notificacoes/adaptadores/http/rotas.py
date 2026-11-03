@@ -128,6 +128,9 @@ async def remover_webhook(assinatura_id: uuid.UUID, usuario: UsuarioAtual, uow: 
     response_model=Pagina[EntregaSaida],
     responses=respostas_erro(401, 403, 404, 422),
     summary="Lista as tentativas de entrega de uma assinatura",
+    description="Uma linha por tentativa. Cada evento tem até 6 tentativas (1 inicial + "
+    "5 retentativas), com esperas de 1 s, 5 s, 30 s, 2 min e 10 min; na 6ª falha a "
+    "notificação fica 'falhou' e a tarefa vai para a DLQ.",
     tags=["webhooks"],
 )
 async def listar_entregas_do_webhook(

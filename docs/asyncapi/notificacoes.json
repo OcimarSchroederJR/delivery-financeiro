@@ -40,7 +40,7 @@
           "is": "routingKey"
         }
       },
-      "description": "Tarefas que esgotaram as 5 retentativas ou falharam de forma definitiva (headers x-fila-origem e x-motivo) e mensagens inválidas.",
+      "description": "Tarefas que esgotaram as 6 tentativas (1 inicial + 5 retentativas) ou falharam de forma definitiva, eventos com exceção inesperada repetida 6 vezes (headers x-fila-origem e x-motivo) e mensagens inválidas.",
       "messages": {
         "Message": {
           "$ref": "#/components/messages/notificacoes.dlq:Message"
@@ -67,7 +67,7 @@
           }
         }
       },
-      "description": "Tarefas de e-mail: busca o perfil na Eq. 1 (cache de 5 min) e envia por SMTP.",
+      "description": "Tarefas de e-mail: busca o perfil na Eq. 1 (cache de 5 min) e envia por SMTP. São até 6 tentativas (1 inicial + 5 retentativas, uma por fila retry.N); na 6ª falha a notificação fica 'falhou' e a mensagem vai para notificacoes.dlq.",
       "messages": {
         "SubscribeMessage": {
           "$ref": "#/components/messages/notificacoes.emails:SubscribeMessage"
@@ -214,10 +214,130 @@
           }
         }
       },
-      "description": "Todos os eventos (bind #). Inbox por mensagem_id; ack depois do commit. Mensagem inválida vai para notificacoes.dlq.",
+      "description": "Todos os eventos (bind #). Inbox por mensagem_id; ack depois do commit. Mensagem inválida vai para notificacoes.dlq. Exceção inesperada vai para notificacoes.eventos.retry.N (header x-falhas-inesperadas) e, depois de 6 tentativas, para a DLQ.",
       "messages": {
         "SubscribeMessage": {
           "$ref": "#/components/messages/notificacoes.eventos:SubscribeMessage"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.1": {
+      "address": "notificacoes.eventos.retry.1",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "type": "default",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Retentativa 1: TTL de 1000 ms; ao expirar, volta para notificacoes.eventos.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/notificacoes.eventos.retry.1:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.2": {
+      "address": "notificacoes.eventos.retry.2",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "type": "default",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Retentativa 2: TTL de 5000 ms; ao expirar, volta para notificacoes.eventos.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/notificacoes.eventos.retry.2:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.3": {
+      "address": "notificacoes.eventos.retry.3",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "type": "default",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Retentativa 3: TTL de 30000 ms; ao expirar, volta para notificacoes.eventos.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/notificacoes.eventos.retry.3:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.4": {
+      "address": "notificacoes.eventos.retry.4",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "type": "default",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Retentativa 4: TTL de 120000 ms; ao expirar, volta para notificacoes.eventos.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/notificacoes.eventos.retry.4:Message"
+        }
+      },
+      "servers": [
+        {
+          "$ref": "#/servers/development"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.5": {
+      "address": "notificacoes.eventos.retry.5",
+      "bindings": {
+        "amqp": {
+          "bindingVersion": "0.3.0",
+          "exchange": {
+            "type": "default",
+            "vhost": "/"
+          },
+          "is": "routingKey"
+        }
+      },
+      "description": "Retentativa 5: TTL de 600000 ms; ao expirar, volta para notificacoes.eventos.",
+      "messages": {
+        "Message": {
+          "$ref": "#/components/messages/notificacoes.eventos.retry.5:Message"
         }
       },
       "servers": [
@@ -241,7 +361,7 @@
           }
         }
       },
-      "description": "Tarefas de webhook: POST com X-Assinatura, X-Assinatura-Timestamp, X-Evento-Id e X-Evento-Tipo; sucesso = 2xx em até 5 s.",
+      "description": "Tarefas de webhook: POST com X-Assinatura, X-Assinatura-Timestamp, X-Evento-Id e X-Evento-Tipo; sucesso = 2xx em até 5 s. São até 6 tentativas (1 inicial + 5 retentativas, uma por fila retry.N); na 6ª falha a notificação fica 'falhou' e a mensagem vai para notificacoes.dlq.",
       "messages": {
         "SubscribeMessage": {
           "$ref": "#/components/messages/notificacoes.webhooks:SubscribeMessage"
@@ -447,6 +567,51 @@
           "$ref": "#/components/schemas/EnvelopeTarefa"
         },
         "title": "notificacoes.emails:SubscribeMessage"
+      },
+      "notificacoes.eventos.retry.1:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EnvelopeTarefa"
+        },
+        "title": "notificacoes.eventos.retry.1:Message"
+      },
+      "notificacoes.eventos.retry.2:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EnvelopeTarefa"
+        },
+        "title": "notificacoes.eventos.retry.2:Message"
+      },
+      "notificacoes.eventos.retry.3:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EnvelopeTarefa"
+        },
+        "title": "notificacoes.eventos.retry.3:Message"
+      },
+      "notificacoes.eventos.retry.4:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EnvelopeTarefa"
+        },
+        "title": "notificacoes.eventos.retry.4:Message"
+      },
+      "notificacoes.eventos.retry.5:Message": {
+        "correlationId": {
+          "location": "$message.header#/correlation_id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/EnvelopeTarefa"
+        },
+        "title": "notificacoes.eventos.retry.5:Message"
       },
       "notificacoes.eventos:SubscribeMessage": {
         "correlationId": {
@@ -823,6 +988,116 @@
         }
       ]
     },
+    "notificacoes.eventos.retry.1": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "notificacoes.eventos.retry.1"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/notificacoes.eventos.retry.1"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/notificacoes.eventos.retry.1/messages/Message"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.2": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "notificacoes.eventos.retry.2"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/notificacoes.eventos.retry.2"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/notificacoes.eventos.retry.2/messages/Message"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.3": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "notificacoes.eventos.retry.3"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/notificacoes.eventos.retry.3"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/notificacoes.eventos.retry.3/messages/Message"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.4": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "notificacoes.eventos.retry.4"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/notificacoes.eventos.retry.4"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/notificacoes.eventos.retry.4/messages/Message"
+        }
+      ]
+    },
+    "notificacoes.eventos.retry.5": {
+      "action": "send",
+      "bindings": {
+        "amqp": {
+          "ack": true,
+          "bindingVersion": "0.3.0",
+          "cc": [
+            "notificacoes.eventos.retry.5"
+          ],
+          "deliveryMode": 1,
+          "mandatory": true
+        }
+      },
+      "channel": {
+        "$ref": "#/channels/notificacoes.eventos.retry.5"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/notificacoes.eventos.retry.5/messages/Message"
+        }
+      ]
+    },
     "notificacoes.webhooks": {
       "action": "receive",
       "bindings": {
@@ -956,7 +1231,7 @@
   },
   "servers": {
     "development": {
-      "description": "Notificações: consome todos os eventos de financeiro.eventos (bind #), envia e-mails e webhooks assinados com HMAC, com retry por TTL (1 s, 5 s, 30 s, 2 min, 10 min) e DLQ, e republica os eventos externos recebidos em POST /v1/eventos.",
+      "description": "Notificações: consome todos os eventos de financeiro.eventos (bind #), envia e-mails e webhooks assinados com HMAC, com retry por TTL (1 s, 5 s, 30 s, 2 min, 10 min) e DLQ, e republica os eventos externos recebidos em POST /v1/eventos. São até 6 tentativas (1 inicial + 5 retentativas, uma por fila retry.N); na 6ª falha a notificação fica 'falhou' e a mensagem vai para notificacoes.dlq.",
       "host": "rabbitmq:5672",
       "pathname": "/",
       "protocol": "amqp",

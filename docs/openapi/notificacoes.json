@@ -967,6 +967,7 @@
     },
     "/v1/webhooks/{assinatura_id}/entregas": {
       "get": {
+        "description": "Uma linha por tentativa. Cada evento tem até 6 tentativas (1 inicial + 5 retentativas), com esperas de 1 s, 5 s, 30 s, 2 min e 10 min; na 6ª falha a notificação fica 'falhou' e a tarefa vai para a DLQ.",
         "operationId": "listar_entregas_do_webhook_v1_webhooks__assinatura_id__entregas_get",
         "parameters": [
           {
