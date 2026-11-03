@@ -73,6 +73,7 @@ async def executar(config: Config, parar: asyncio.Event) -> None:
         ),
         EncaminhadorDeFalhas(broker_consumo),
         max_falhas=config.max_retentativas,
+        prefetch=config.consumidor_prefetch,
         pausa_em_erro=config.consumidor_pausa_em_erro_segundos,
     )
     relays = (

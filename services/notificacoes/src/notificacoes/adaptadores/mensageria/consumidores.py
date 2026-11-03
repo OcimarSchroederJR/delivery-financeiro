@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from faststream import AckPolicy
-from faststream.rabbit import RabbitBroker
+from faststream.rabbit import Channel, RabbitBroker
 from faststream.rabbit.annotations import RabbitMessage
 from pydantic import ValidationError
 
@@ -229,10 +229,22 @@ def registrar_consumidores(
     encaminhador: Encaminhador,
     *,
     max_falhas: int,
+    prefetch: int,
     pausa_em_erro: float = 1.0,
 ) -> None:
+    """Cada fila tem canal próprio com ``prefetch``: até ``prefetch`` mensagens em
+    paralelo por fila (um webhook lento não segura os outros) e nunca um número
+    ilimitado (o que esgotaria as conexões do banco)."""
+
+    def canal() -> Channel:
+        return Channel(prefetch_count=prefetch)
+
     @broker.subscriber(
-        fila_eventos(), EXCHANGE_EVENTOS, ack_policy=AckPolicy.MANUAL, title=FILA_EVENTOS
+        fila_eventos(),
+        EXCHANGE_EVENTOS,
+        channel=canal(),
+        ack_policy=AckPolicy.MANUAL,
+        title=FILA_EVENTOS,
     )
     async def consumir_evento(mensagem: RabbitMessage) -> None:
         await tratar_evento(
@@ -245,7 +257,12 @@ def registrar_consumidores(
             pausa_em_erro=pausa_em_erro,
         )
 
-    @broker.subscriber(fila_de_tarefas(FILA_EMAILS), ack_policy=AckPolicy.MANUAL, title=FILA_EMAILS)
+    @broker.subscriber(
+        fila_de_tarefas(FILA_EMAILS),
+        channel=canal(),
+        ack_policy=AckPolicy.MANUAL,
+        title=FILA_EMAILS,
+    )
     async def consumir_email(mensagem: RabbitMessage) -> None:
         await tratar_tarefa(
             bytes(mensagem.body),
@@ -259,7 +276,10 @@ def registrar_consumidores(
         )
 
     @broker.subscriber(
-        fila_de_tarefas(FILA_WEBHOOKS), ack_policy=AckPolicy.MANUAL, title=FILA_WEBHOOKS
+        fila_de_tarefas(FILA_WEBHOOKS),
+        channel=canal(),
+        ack_policy=AckPolicy.MANUAL,
+        title=FILA_WEBHOOKS,
     )
     async def consumir_webhook(mensagem: RabbitMessage) -> None:
         await tratar_tarefa(

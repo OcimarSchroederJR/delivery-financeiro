@@ -4,8 +4,14 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
+from faststream.rabbit import RabbitBroker
 
-from notificacoes.adaptadores.mensageria.consumidores import tratar_evento, tratar_tarefa
+from notificacoes.adaptadores.mensageria.consumidores import (
+    Processadores,
+    registrar_consumidores,
+    tratar_evento,
+    tratar_tarefa,
+)
 from notificacoes.adaptadores.mensageria.topologia import (
     FILA_EVENTOS,
     FILA_WEBHOOKS,
@@ -217,3 +223,28 @@ async def test_tarefa_malformada_e_rejeitada() -> None:
         pausa_em_erro=0,
     )
     assert registro == ["reject(requeue=False)"]
+
+
+def test_consumidores_tem_prefetch_limitado_e_canal_proprio() -> None:
+    broker = RabbitBroker()
+
+    async def nada(_entrada: object) -> Desfecho:
+        return Desfecho.concluida()
+
+    registrar_consumidores(
+        broker,
+        Processadores(distribuir=nada, enviar_email=nada, entregar_webhook=nada),
+        EncaminhadorFalso([]),
+        max_falhas=5,
+        prefetch=10,
+    )
+    prefetch = {
+        assinante.queue.name: assinante.channel.prefetch_count
+        for assinante in broker.subscribers
+        if assinante.channel is not None
+    }
+    assert prefetch == {
+        "notificacoes.eventos": 10,
+        "notificacoes.emails": 10,
+        "notificacoes.webhooks": 10,
+    }

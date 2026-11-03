@@ -1,17 +1,24 @@
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from notificacoes.adaptadores.cifrador import CifradorFernet
 from notificacoes.adaptadores.db.modelos import Base
 from notificacoes.adaptadores.db.uow import fabrica_sql
-from notificacoes.aplicacao.portas import FabricaUow, SegredoIlegivel
-from notificacoes.aplicacao.tarefas import TIPO_TAREFA_EMAIL, Tarefa
+from notificacoes.aplicacao.entrega_webhook import EntregarWebhook
+from notificacoes.aplicacao.portas import FabricaUow, ResultadoEntrega, SegredoIlegivel
+from notificacoes.aplicacao.tarefas import (
+    TIPO_TAREFA_EMAIL,
+    TIPO_TAREFA_WEBHOOK,
+    Tarefa,
+    TipoDesfecho,
+)
 from notificacoes.dominio.assinatura import AssinaturaWebhook
 from notificacoes.dominio.entrega import EntregaWebhook
 from notificacoes.dominio.notificacao import Notificacao, StatusNotificacao
@@ -236,3 +243,51 @@ async def test_assinaturas_e_entregas_paginadas(fabrica_uow: FabricaUow) -> None
     assert (do_dono, todas, len(ativas)) == (1, 2, 2)
     assert total == 3
     assert [entrega.tentativa for entrega in entregas] == [3, 2]
+
+
+async def test_entrega_de_webhook_nao_segura_a_trava_durante_o_http(
+    fabrica_uow: FabricaUow, banco_migrado: str
+) -> None:
+    """Um receptor lento não pode prender a linha (nem a transação) da notificação."""
+    assinatura = _assinatura()
+    evento = EnvelopeEvento.novo("pagamento.aprovado", {"cliente_id": "cliente-1"})
+    notificacao = Notificacao.para_webhook(
+        mensagem_id_origem=evento.mensagem_id,
+        tipo_evento=evento.tipo,
+        assinatura=assinatura,
+        agora=AGORA,
+    )
+    async with fabrica_uow() as uow:
+        await uow.assinaturas.adicionar(assinatura)
+        await uow.notificacoes.adicionar(notificacao)
+        await uow.commit()
+    engine = create_async_engine(banco_migrado)
+    observado: list[str] = []
+
+    class EntregadorQueOlhaATrava:
+        async def entregar(
+            self, url: str, corpo: bytes, cabecalhos: Mapping[str, str]
+        ) -> ResultadoEntrega:
+            async with engine.connect() as conexao:
+                try:
+                    await conexao.execute(
+                        text("SELECT id FROM notificacoes WHERE id = :id FOR UPDATE NOWAIT"),
+                        {"id": notificacao.id},
+                    )
+                    observado.append("livre")
+                except DBAPIError:
+                    observado.append("travada")
+                await conexao.rollback()
+            return ResultadoEntrega(status_http=204, duracao_ms=1)
+
+    caso = EntregarWebhook(fabrica_uow, EntregadorQueOlhaATrava(), max_retentativas=5)
+    desfecho = await caso.executar(Tarefa(TIPO_TAREFA_WEBHOOK, notificacao.id, evento))
+    await engine.dispose()
+    assert observado == ["livre"]
+    assert desfecho.tipo is TipoDesfecho.CONCLUIDA
+    async with fabrica_uow() as uow:
+        _, total = await uow.entregas.listar(assinatura.id, deslocamento=0, limite=10)
+        atualizada = await uow.notificacoes.obter_para_atualizar(notificacao.id)
+    assert total == 1
+    assert atualizada is not None
+    assert atualizada.status is StatusNotificacao.ENVIADA
