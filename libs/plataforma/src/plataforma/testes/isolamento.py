@@ -19,6 +19,12 @@ def _importados(arvore: ast.AST) -> list[str]:
         elif isinstance(no, ast.ImportFrom):
             base = "." * no.level + (no.module or "")
             nomes.append(base)
+            separador = "." if no.module else ""
+            nomes.extend(
+                f"{base}{separador}{alias.name}"
+                for alias in no.names
+                if alias.name == PACOTE_DE_TESTES
+            )
     return nomes
 
 
