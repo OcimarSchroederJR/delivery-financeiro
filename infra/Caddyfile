@@ -20,6 +20,22 @@
 		reverse_proxy avaliacoes:8000
 	}
 
+	# Painéis de operação: mantêm o prefixo (as interfaces geram links absolutos
+	# com base path /jaeger e webroot /mailpit) e exigem basic auth.
+	handle /jaeger* {
+		basic_auth {
+			{$BASIC_AUTH_USUARIO} {$BASIC_AUTH_HASH}
+		}
+		reverse_proxy jaeger:16686
+	}
+
+	handle /mailpit* {
+		basic_auth {
+			{$BASIC_AUTH_USUARIO} {$BASIC_AUTH_HASH}
+		}
+		reverse_proxy mailpit:8025
+	}
+
 	handle {
 		respond "Não encontrado" 404
 	}
