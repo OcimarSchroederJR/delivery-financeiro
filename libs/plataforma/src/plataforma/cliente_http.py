@@ -1,6 +1,7 @@
 """Cliente HTTP base para outras equipes (spec §5 e §6).
 
-- timeout em toda chamada;
+- timeout em toda tentativa e um prazo total (padrão 8 s) por chamada lógica, que
+  corta os retries;
 - retry (tenacity, backoff exponencial com jitter) só em GET/HEAD/OPTIONS e em
   requisições com ``Idempotency-Key``; nunca em 4xx;
 - circuit breaker por dependência envolvendo a chamada lógica (com retries);
