@@ -33,5 +33,12 @@ services:
       retries: 6
     restart: unless-stopped
 
+  # Traces. A interface fica em /jaeger (atrás de basic auth no Caddy); os serviços
+  # enviam OTLP para jaeger:4318 pela rede interna.
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    command: ["--set=extensions.jaeger_query.base_path=/jaeger"]
+    restart: unless-stopped
+
 volumes:
   dados-rabbitmq:
