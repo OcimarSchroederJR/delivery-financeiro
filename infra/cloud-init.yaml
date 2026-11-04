@@ -1,7 +1,10 @@
 #cloud-config
 # VM de produção da Equipe 5 (spec §7.3): Ubuntu 24.04 no Azure for Students.
+# Passado ao "az vm create --custom-data" por infra/azure/criar-vm.sh, que troca o
+# marcador em ssh_authorized_keys pela chave pública do pipeline antes de criar a VM.
 #
 # - Docker Engine + plugin compose (repositório oficial da Docker);
+# - usuário "deploy" no grupo docker, só com login por chave;
 #
 
 package_update: true
@@ -11,6 +14,19 @@ packages:
   - ca-certificates
   - curl
   - gnupg
+
+users:
+  - default
+  - name: deploy
+    gecos: Deploy do pipeline (financeiro-eq5)
+    shell: /bin/bash
+    lock_passwd: true
+    groups: [docker]
+    ssh_authorized_keys:
+      - __CHAVE_PUBLICA_DEPLOY__
+
+groups:
+  - docker
 
 runcmd:
   # Docker Engine e plugin compose pelo repositório oficial (docs.docker.com/engine/install/ubuntu).
@@ -26,3 +42,4 @@ runcmd:
     DEBIAN_FRONTEND=noninteractive apt-get install -y
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
+  - usermod -aG docker deploy
