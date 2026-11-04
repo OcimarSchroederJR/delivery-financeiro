@@ -1,0 +1,25 @@
+# Produção da Equipe 5 (spec §7.3). Na VM, este arquivo fica ao lado do Caddyfile e do .env:
+#   TAG=<sha> docker compose -f compose.prod.yaml pull
+#   TAG=<sha> docker compose -f compose.prod.yaml up -d
+# Só o Caddy publica portas; APIs, bancos e RabbitMQ ficam na rede interna.
+# Variáveis com ${VAR:?} são obrigatórias: o compose não sobe sem elas.
+name: financeiro-eq5
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USUARIO:?defina RABBITMQ_USUARIO no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_SENHA:?defina RABBITMQ_SENHA no .env}
+    volumes:
+      - dados-rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  dados-rabbitmq:
