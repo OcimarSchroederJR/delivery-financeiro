@@ -15,8 +15,10 @@ from datetime import timedelta
 import httpx
 import pytest
 from pydantic import SecretStr
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from avaliacoes.adaptadores.db.modelos import MensagemOutbox
 from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
 from avaliacoes.config import Config
 from avaliacoes.dominio.disputa import Disputa, MotivoDisputa
@@ -93,3 +95,11 @@ async def _gravar(uow: FabricaUnidadeDeTrabalho, disputa: Disputa) -> None:
     async with uow() as u:
         await u.disputas.adicionar(disputa)
         await u.commit()
+
+
+async def _eventos(fabrica: async_sessionmaker[AsyncSession], tipo: str) -> int:
+    async with fabrica() as sessao:
+        total = await sessao.scalar(
+            select(func.count()).select_from(MensagemOutbox).where(MensagemOutbox.tipo == tipo)
+        )
+    return int(total or 0)
