@@ -17,7 +17,8 @@ class ConfiguracaoBase(BaseSettings):
     (ex.: ``database_url`` lê ``DATABASE_URL``).
     """
 
-    model_config = SettingsConfigDict(extra="ignore", frozen=True)
+    # hide_input_in_errors: o erro de boot vai para o log e não pode carregar segredos.
+    model_config = SettingsConfigDict(extra="ignore", frozen=True, hide_input_in_errors=True)
 
     servico: str
     ambiente: Literal["local", "teste", "producao"] = "local"
