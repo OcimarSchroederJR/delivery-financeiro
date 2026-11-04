@@ -1,0 +1,40 @@
+# Override para testar a produção na sua máquina antes de as imagens existirem no GHCR.
+# Constrói as imagens a partir do código e as tagueia como ghcr.io/ocimarschroederjr/<servico>:${TAG}.
+#   cp infra/.env.local.example infra/.env
+#   docker compose -f infra/compose.prod.yaml -f infra/compose.prod.local.yaml \
+#     --env-file infra/.env --profile mocks up -d --build
+# Cada imagem é construída uma vez (no serviço da API ou no mock-identidade); os demais
+# serviços reutilizam a mesma tag local com pull_policy: never.
+# Não é copiado para a VM: lá as imagens vêm do GHCR.
+
+x-local: &local
+  pull_policy: never
+
+services:
+  pagamentos:
+    build:
+      context: ..
+      dockerfile: services/pagamentos/Dockerfile
+  migrate-pagamentos: *local
+  pagamentos-worker: *local
+
+  notificacoes:
+    build:
+      context: ..
+      dockerfile: services/notificacoes/Dockerfile
+  migrate-notificacoes: *local
+  notificacoes-worker: *local
+
+  avaliacoes:
+    build:
+      context: ..
+      dockerfile: services/avaliacoes/Dockerfile
+  migrate-avaliacoes: *local
+  avaliacoes-worker: *local
+
+  mock-identidade:
+    build:
+      context: ..
+      dockerfile: mocks/Dockerfile
+  mock-pedidos: *local
+  mock-logistica: *local

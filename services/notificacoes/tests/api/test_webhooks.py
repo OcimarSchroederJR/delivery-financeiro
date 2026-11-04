@@ -129,6 +129,8 @@ async def _api_de_producao(gerador: GeradorDeTokens) -> AsyncIterator[httpx.Asyn
         webhook_segredo_cifragem=SecretStr("c" * 32),
         database_url="postgresql+asyncpg://x:x@127.0.0.1:1/x",
         rabbitmq_url="amqp://guest:guest@127.0.0.1:1/",
+        jwks_url="https://identidade.exemplo/.well-known/jwks.json",
+        identidade_url="https://identidade.exemplo",
     )
     app = criar_app(
         config,

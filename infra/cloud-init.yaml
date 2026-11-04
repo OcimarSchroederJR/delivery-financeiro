@@ -1,0 +1,93 @@
+#cloud-config
+# VM de produção da Equipe 5 (spec §7.3): Ubuntu 24.04 no Azure for Students.
+# Passado ao "az vm create --custom-data" por infra/azure/criar-vm.sh, que troca o
+# marcador em ssh_authorized_keys pela chave pública do pipeline antes de criar a VM.
+#
+# - Docker Engine + plugin compose (repositório oficial da Docker);
+# - usuário "deploy" no grupo docker, só com login por chave;
+# - unattended-upgrades com as atualizações de segurança;
+# - ufw liberando só 22, 80 e 443 (o NSG do Azure faz o mesmo na borda);
+# - swap de 2 GB: 3 Postgres, RabbitMQ, Jaeger e 7 processos Python em 4 GB de RAM;
+# - diretório /opt/financeiro-eq5, onde ficam compose.prod.yaml, Caddyfile e .env.
+#
+# Conferir no fim do boot: sudo cloud-init status --long  (log em /var/log/cloud-init-output.log)
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - ufw
+  - unattended-upgrades
+
+users:
+  - default
+  - name: deploy
+    gecos: Deploy do pipeline (financeiro-eq5)
+    shell: /bin/bash
+    lock_passwd: true
+    groups: [docker]
+    ssh_authorized_keys:
+      - __CHAVE_PUBLICA_DEPLOY__
+
+groups:
+  - docker
+
+ssh_pwauth: false
+disable_root: true
+
+write_files:
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    permissions: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+  - path: /etc/ssh/sshd_config.d/10-financeiro-eq5.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "5" }
+      }
+
+swap:
+  filename: /swapfile
+  size: 2G
+
+runcmd:
+  # Docker Engine e plugin compose pelo repositório oficial (docs.docker.com/engine/install/ubuntu).
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - >-
+    sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc]
+    https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable"
+    > /etc/apt/sources.list.d/docker.list'
+  - apt-get update
+  - >-
+    DEBIAN_FRONTEND=noninteractive apt-get install -y
+    docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+  - usermod -aG docker deploy
+  # Firewall local: mesmo conjunto de portas do NSG.
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw allow 443/udp
+  - ufw --force enable
+  - systemctl enable --now unattended-upgrades
+  - systemctl reload ssh
+  - install -d -o deploy -g deploy -m 0750 /opt/financeiro-eq5
+
+final_message: "financeiro-eq5: VM pronta em $UPTIME s (cloud-init $VERSION)"
