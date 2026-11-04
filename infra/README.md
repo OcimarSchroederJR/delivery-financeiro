@@ -90,4 +90,5 @@ docker run --rm caddy:2.10.2-alpine caddy hash-password --plaintext '<senha>'
 - **Aspas no hash.** Escreva o hash entre aspas **simples** no `.env`
   (`BASIC_AUTH_HASH='$2a$14$...'`). Sem elas, o compose tenta interpolar os `$` do bcrypt.
 
-O `.env` de produção, os GitHub Secrets e o deploy na VM ficam nas issues #34, #35 e #36.
+Para criar a VM, cadastrar os GitHub Secrets, fazer o primeiro deploy e operar a produção, veja
+[`docs/deploy.md`](../docs/deploy.md).
