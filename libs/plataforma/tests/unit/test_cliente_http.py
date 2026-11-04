@@ -1,4 +1,5 @@
 import asyncio
+import time
 from collections.abc import AsyncIterator
 
 import httpx
@@ -126,3 +127,18 @@ def _transporte_lento(atraso: float, status: int = 502) -> tuple[httpx.MockTrans
         return httpx.Response(status)
 
     return httpx.MockTransport(responder), chamadas
+
+
+async def test_prazo_total_corta_os_retries_e_vira_503() -> None:
+    transporte, chamadas = _transporte_lento(0.25)
+    async with ClienteHttp(
+        "pedidos", BASE, transporte=transporte, prazo_total=0.4, espera_base=0, espera_maxima=0
+    ) as cliente:
+        inicio = time.perf_counter()
+        with pytest.raises(ErroDependenciaIndisponivel) as erro, capture_logs() as logs:
+            await cliente.get("/pedidos/1")
+        duracao = time.perf_counter() - inicio
+    assert duracao < 0.6
+    assert len(chamadas) == 2
+    assert erro.value.dependencia == "pedidos"
+    assert any(log["event"] == "http_saida_prazo_esgotado" for log in logs)
