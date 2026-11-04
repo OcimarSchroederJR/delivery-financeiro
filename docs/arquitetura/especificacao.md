@@ -334,7 +334,7 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 
 | Mecanismo | Especificação |
 |---|---|
-| Timeout | 1 s para conectar e 3 s para ler em todo cliente httpx, configurável (`HTTP_TIMEOUT_*`) |
+| Timeout | 1 s para conectar e 3 s para ler em todo cliente httpx, configurável (`HTTP_TIMEOUT_*`). Prazo total de 8 s por chamada lógica, somando retries e backoff (`HTTP_PRAZO_TOTAL`): ao esgotar, a tentativa em curso é cancelada e a resposta é `503` |
 | Retry | tenacity com até 3 tentativas, backoff exponencial e jitter, apenas em GET e em POST com `Idempotency-Key`; nunca em 4xx |
 | Circuit breaker | um por dependência; abre após 5 falhas consecutivas; meio-aberto após 30 s; aberto → `503 DEPENDENCIA_INDISPONIVEL` imediato |
 | JWKS | cache com TTL; se a Eq. 1 estiver fora, continua validando com a última chave conhecida |
