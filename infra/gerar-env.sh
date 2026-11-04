@@ -19,5 +19,9 @@ mapfile -t nomes < <(grep -E '^[A-Z][A-Z0-9_]*=' "$modelo" | cut -d= -f1)
 echo "# Gerado por infra/gerar-env.sh. Não edite na VM: o próximo deploy sobrescreve."
 for nome in "${nomes[@]}"; do
   valor="${!nome-}"
+  if [[ "$valor" == *"'"* || "$valor" == *$'\n'* || "$valor" == *$'\r'* ]]; then
+    echo "$nome contém aspa simples ou quebra de linha" >&2
+    exit 1
+  fi
   printf "%s='%s'\n" "$nome" "$valor"
 done
