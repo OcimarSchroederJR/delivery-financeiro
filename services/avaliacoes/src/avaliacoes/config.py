@@ -1,11 +1,19 @@
 """Configuração do serviço de Avaliações (variáveis de ambiente)."""
 
+from typing import ClassVar
+
 from pydantic import Field
 
 from plataforma.config import ConfiguracaoBase
 
 
 class Config(ConfiguracaoBase):
+    CAMPOS_EXPLICITOS_EM_PRODUCAO: ClassVar[tuple[str, ...]] = (
+        *ConfiguracaoBase.CAMPOS_EXPLICITOS_EM_PRODUCAO,
+        "pedidos_url",
+        "pagamentos_url",
+    )
+
     servico: str = "avaliacoes"
     pedidos_url: str = "http://localhost:8008"
     pagamentos_url: str = "http://localhost:8013"
