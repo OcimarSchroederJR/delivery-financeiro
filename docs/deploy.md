@@ -172,3 +172,8 @@ serviço falham ao montar o `Config`. O container termina com o erro abaixo nos 
 
 A regra fica em `libs/plataforma/src/plataforma/config.py`
 (`CAMPOS_EXPLICITOS_EM_PRODUCAO`). Cada serviço estende a lista no próprio `config.py`.
+
+## 5. Primeiro deploy manual
+
+Faça uma vez, para conferir a VM antes de ligar o CD. Depois, o pipeline (#36) repete estes
+passos a cada merge na `main`.
