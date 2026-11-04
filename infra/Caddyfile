@@ -13,6 +13,12 @@
 
 	encode zstd gzip
 
+	# Log de acesso em JSON no stdout, no mesmo formato dos serviços (docker compose logs caddy).
+	log {
+		output stdout
+		format json
+	}
+
 	# /pagamentos e /pagamentos/ (idem para os outros) levam ao Swagger do serviço.
 	@raiz_servico path_regexp servico ^/(pagamentos|notificacoes|avaliacoes)/?$
 	redir @raiz_servico /{re.servico.1}/docs
