@@ -101,3 +101,7 @@ jobs:
           umask 077
           bash infra/gerar-env.sh > "$RUNNER_TEMP/vm/.env"
           cp infra/compose.prod.yaml infra/Caddyfile infra/implantar.sh "$RUNNER_TEMP/vm/"
+
+      # Falha aqui, antes de tocar na VM, se faltar alguma variável obrigatória (${VAR:?}).
+      - name: Validar o compose com o .env
+        run: docker compose -f "$RUNNER_TEMP/vm/compose.prod.yaml" --env-file "$RUNNER_TEMP/vm/.env" config --quiet
