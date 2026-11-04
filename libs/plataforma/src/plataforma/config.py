@@ -1,10 +1,13 @@
 """Configuração base dos serviços, lida de variáveis de ambiente."""
 
-from typing import Literal
+from typing import Literal, Self
 
 import httpx
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Valor padrão de TOKEN_SERVICO_SEGREDO nos compose locais: nunca pode chegar à produção.
+SEGREDO_DE_DESENVOLVIMENTO = "segredo-local-financeiro-eq5-troque-em-producao"
 
 
 class ConfiguracaoBase(BaseSettings):
@@ -37,6 +40,17 @@ class ConfiguracaoBase(BaseSettings):
 
     otel_habilitado: bool = False
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
+
+    @model_validator(mode="after")
+    def _recusar_valores_de_desenvolvimento_em_producao(self) -> Self:
+        if self.ambiente != "producao":
+            return self
+        if self.token_servico_segredo.get_secret_value() == SEGREDO_DE_DESENVOLVIMENTO:
+            raise ValueError(
+                "TOKEN_SERVICO_SEGREDO usa o valor padrão de desenvolvimento; "
+                "defina um segredo próprio em produção."
+            )
+        return self
 
     def timeout_http(self) -> httpx.Timeout:
         """Timeout padrão de toda chamada HTTP de saída (spec §5)."""
