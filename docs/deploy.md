@@ -125,6 +125,35 @@ Em *Settings → Secrets and variables → Actions → New repository secret*, o
 - `IDENTIDADE_CREDENCIAL` só entra quando a Equipe 1 fornecer uma credencial de serviço.
 - Quem gera um segredo cadastra-o direto no GitHub. O valor não passa por chat, issue ou commit.
 
+### Cadastrar pelo terminal
+
+`gh secret set` lê o valor da entrada padrão, então ele não fica no histórico do shell:
+
+```bash
+R=OcimarSchroederJR/delivery-financeiro
+gh secret set SSH_HOST           -R $R --body "<ip>"
+gh secret set SSH_USUARIO        -R $R --body deploy
+gh secret set SSH_CHAVE_PRIVADA  -R $R < ~/.ssh/deploy-financeiro-eq5
+gh secret set DOMINIO            -R $R --body "financeiro-eq5.<ip>.sslip.io"
+for nome in TOKEN_SERVICO_SEGREDO WEBHOOK_SEGREDO_CIFRAGEM RABBITMQ_SENHA \
+            PAGAMENTOS_DB_SENHA NOTIFICACOES_DB_SENHA AVALIACOES_DB_SENHA; do
+  python -c "import secrets; print(secrets.token_urlsafe(48), end='')" | gh secret set "$nome" -R $R
+done
+gh secret set RABBITMQ_USUARIO   -R $R --body financeiro
+gh secret set BASIC_AUTH_USUARIO -R $R --body admin
+docker run --rm caddy:2.10.2-alpine caddy hash-password --plaintext '<senha-dos-paineis>' \
+  | tr -d '\r\n' | gh secret set BASIC_AUTH_HASH -R $R
+# Com os mocks (enquanto as outras equipes não estão no ar):
+gh secret set JWKS_URL           -R $R --body http://mock-identidade:8001/.well-known/jwks.json
+gh secret set IDENTIDADE_URL     -R $R --body http://mock-identidade:8001
+gh secret set PEDIDOS_URL        -R $R --body http://mock-pedidos:8008
+gh secret set COMPOSE_PROFILES   -R $R --body mocks
+gh secret list -R $R
+```
+
+Guarde a senha dos painéis (`/jaeger` e `/mailpit`) num gerenciador de senhas. O GitHub
+guarda só o hash.
+
 ### O que o boot recusa em produção
 
 Com `AMBIENTE=producao`, que o `infra/compose.prod.yaml` já define, a API e o worker de cada
