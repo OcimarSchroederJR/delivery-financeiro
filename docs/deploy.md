@@ -94,7 +94,7 @@ ssh azureuser@<ip> sudo cloud-init status --wait --long   # status: done
 ssh -i ~/.ssh/deploy-financeiro-eq5 deploy@<ip> docker compose version
 ```
 
-## Segredos e configuração
+## 4. Segredos e configuração
 
 Nenhum segredo real fica no repositório. Os valores ficam em **GitHub Secrets**, e o pipeline
 de deploy grava o `.env` da VM a partir deles. O modelo com todas as variáveis, sem valores,
