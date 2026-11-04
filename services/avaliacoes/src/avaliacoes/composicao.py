@@ -59,9 +59,17 @@ async def dependencias_reais(
 ) -> AsyncIterator[Dependencias]:
     """Um ``ClienteHttp`` (com seu circuit breaker) por dependência, fechado no fim."""
     async with (
-        ClienteHttp("pedidos", config.pedidos_url, timeout=config.timeout_http()) as pedidos,
         ClienteHttp(
-            "pagamentos", config.pagamentos_url, timeout=config.timeout_http()
+            "pedidos",
+            config.pedidos_url,
+            timeout=config.timeout_http(),
+            prazo_total=config.http_prazo_total,
+        ) as pedidos,
+        ClienteHttp(
+            "pagamentos",
+            config.pagamentos_url,
+            timeout=config.timeout_http(),
+            prazo_total=config.http_prazo_total,
         ) as pagamentos,
     ):
         yield Dependencias(
