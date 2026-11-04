@@ -118,7 +118,9 @@ Em *Settings → Secrets and variables → Actions → New repository secret*, o
 | `RABBITMQ_USUARIO` / `RABBITMQ_SENHA` | Credenciais do RabbitMQ | Livre / mesmo comando |
 | `PAGAMENTOS_DB_SENHA`, `NOTIFICACOES_DB_SENHA`, `AVALIACOES_DB_SENHA` | Senhas dos bancos | Mesmo comando |
 | `JWKS_URL`, `IDENTIDADE_URL`, `PEDIDOS_URL` | APIs das Equipes 1 e 3 | Combinar com as equipes (#38 e #39) |
-| `COMPOSE_PROFILES` | `mocks` enquanto as Equipes 1, 3 e 4 não estão no ar; vazio depois | Livre (pode ser *Variable*) |
+| `COMPOSE_PROFILES` | `mocks` enquanto as Equipes 1, 3 e 4 não estão no ar; vazio depois | Livre |
+| `SSH_KNOWN_HOSTS` (opcional) | Fixa a chave do host da VM (seção 8) | `ssh-keyscan -t ed25519 <ip>` |
+| `EMAIL_ADMIN`, `LOG_NIVEL`, `OTEL_HABILITADO`, `IDENTIDADE_CREDENCIAL` (opcionais) | Vazios usam o padrão | Livre |
 
 - As URLs das outras equipes não são segredo. Podem ir como *Variables* em vez de *Secrets*,
   desde que o pipeline as leia de `vars.` em vez de `secrets.`.
