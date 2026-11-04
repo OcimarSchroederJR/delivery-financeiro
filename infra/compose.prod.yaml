@@ -52,7 +52,7 @@ x-ambiente-avaliacoes: &ambiente-avaliacoes
   SAGA_ESPERA_BASE_SEGUNDOS: ${SAGA_ESPERA_BASE_SEGUNDOS:-5}
   SAGA_ATRASO_INICIAL_SEGUNDOS: ${SAGA_ATRASO_INICIAL_SEGUNDOS:-30}
 
-# Mocks das Equipes 1, 3 e 4: sÃ³ sobem com --profile mocks, enquanto as equipes nÃ£o estÃ£o no ar.
+# Mocks das Equipes 1, 3 e 4: só sobem com --profile mocks, enquanto as equipes não estão no ar.
 x-imagem-mocks: &imagem-mocks
   image: ghcr.io/ocimarschroederjr/mocks:${TAG:?defina TAG (tag das imagens no GHCR)}
   profiles: ["mocks"]
