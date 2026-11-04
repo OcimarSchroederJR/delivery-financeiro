@@ -4,6 +4,17 @@ Passo a passo reproduzível para colocar a Equipe 5 no ar numa VM do **Azure for
 (spec §7.3). A VM roda o [`infra/compose.prod.yaml`](../infra/compose.prod.yaml) atrás do Caddy,
 com HTTPS automático em `financeiro-eq5.<ip>.sslip.io`.
 
+| Etapa | Feita por | Frequência |
+|---|---|---|
+| 1. Ativar o Azure for Students | quem tem a conta | uma vez |
+| 2. Gerar as chaves SSH | quem cria a VM | uma vez |
+| 3. Criar a VM (`infra/azure/criar-vm.sh`) | quem cria a VM | uma vez |
+| 4. Cadastrar os GitHub Secrets | quem cria a VM | uma vez (e ao trocar um segredo) |
+| 5. Primeiro deploy manual | quem cria a VM | uma vez |
+| 6. Verificar | qualquer pessoa | a cada deploy |
+
+Depois do primeiro deploy, cada merge na `main` atualiza a VM pelo pipeline de CD (#36).
+
 ## Segredos e configuração
 
 Nenhum segredo real fica no repositório. Os valores ficam em **GitHub Secrets**, e o pipeline
