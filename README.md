@@ -79,7 +79,7 @@ uv run python -m pagamentos.contratos         # regenera docs/openapi e docs/asy
 libs/plataforma/   código técnico compartilhado (erros, logs, auth, outbox, inbox, HTTP...)
 services/<s>/      um serviço: src/<s>/{dominio,aplicacao,adaptadores}, alembic/, tests/
 mocks/             stubs das Equipes 1, 3 e 4 (profile "mocks")
-infra/             produção: compose.prod.yaml, Caddyfile (HTTPS) e teste local
+infra/             produção: compose.prod.yaml, Caddyfile (HTTPS), cloud-init e criação da VM
 docs/              especificação, levantamento de requisitos e contratos
 ```
 
