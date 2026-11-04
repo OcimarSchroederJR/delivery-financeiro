@@ -105,6 +105,12 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose --profile mocks config --quiet
+      - name: Validar compose de produção (com e sem mocks e com o override local)
+        run: |
+          prod="docker compose -f infra/compose.prod.yaml --env-file infra/.env.local.example"
+          $prod config --quiet
+          $prod --profile mocks config --quiet
+          $prod -f infra/compose.prod.local.yaml --profile mocks config --quiet
 
   ci-ok:
     name: ci-ok
