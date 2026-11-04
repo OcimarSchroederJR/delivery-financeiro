@@ -35,6 +35,20 @@ while true; do
   sleep "$intervalo"
 done
 
+{
+  echo "### Smoke test: https://$dominio"
+  echo
+  echo "| Serviço | \`/saude/pronto\` |"
+  echo "|---|---|"
+  for servico in "${servicos[@]}"; do
+    marca="✅"
+    [[ "${codigo[$servico]}" == 200 ]] || marca="❌"
+    echo "| $servico | $marca ${codigo[$servico]} |"
+  done
+  echo
+  echo "$tentativa tentativa(s) em ${SECONDS}s (prazo ${prazo}s)."
+} | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+
 if ((${#pendentes[@]})); then
   echo "Smoke test falhou: ${pendentes[*]} não respondeu 200 em ${prazo}s." >&2
   exit 1
