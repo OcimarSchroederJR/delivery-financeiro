@@ -51,6 +51,12 @@ def test_producao_exige_chave_de_cifragem() -> None:
     assert config.segredo_de_cifragem() == "c" * 32
 
 
+def test_producao_exige_a_url_de_identidade_explicita() -> None:
+    urls = {campo: valor for campo, valor in URLS_DE_PRODUCAO.items() if campo != "identidade_url"}
+    with pytest.raises(ValidationError, match="IDENTIDADE_URL"):
+        _config(ambiente="producao", webhook_segredo_cifragem=SecretStr("c" * 32), **urls)
+
+
 def test_segredo_de_cifragem_fora_de_producao_usa_o_token_de_servico() -> None:
     assert _config().segredo_de_cifragem() == SEGREDO_SERVICO_TESTE
 
