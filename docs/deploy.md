@@ -15,6 +15,22 @@ com HTTPS automático em `financeiro-eq5.<ip>.sslip.io`.
 
 Depois do primeiro deploy, cada merge na `main` atualiza a VM pelo pipeline de CD (#36).
 
+## 1. Ativar o Azure for Students
+
+1. Acesse <https://azure.microsoft.com/free/students> e entre com o e-mail institucional
+   (`@upe.br`). A verificação é pelo e-mail: não pede cartão.
+2. A assinatura **Azure for Students** dá US$ 100 de crédito por 12 meses. Confira o saldo em
+   <https://www.microsoftazuresponsorships.com/Balance>.
+3. Instale o Azure CLI (<https://learn.microsoft.com/cli/azure/install-azure-cli>) e entre:
+
+   ```bash
+   az login
+   az account show --query "{assinatura:name, id:id}" --output table   # deve ser "Azure for Students"
+   ```
+
+Custo: uma B2s custa cerca de US$ 30–40/mês ligada, além do disco e do IP. Com
+`az vm deallocate` (seção 7), a VM deixa de cobrar computação e o IP estático é mantido.
+
 ## Segredos e configuração
 
 Nenhum segredo real fica no repositório. Os valores ficam em **GitHub Secrets**, e o pipeline
