@@ -367,7 +367,8 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
   - usuário não-root;
   - `HEALTHCHECK` em `/saude/vivo`;
   - `CMD` em forma exec;
-  - `.dockerignore`.
+  - `.dockerignore`;
+  - sem código de apoio a testes: o estágio de build apaga `plataforma/testes` e `<servico>/testes` (fakes, gerador de tokens e `SEGREDO_SERVICO_TESTE`). Eles ficam em `src` porque o mypy confere os fakes contra as portas, e uma extra de dependência não tiraria o subpacote do wheel. O teste `test_isolamento_testes` de cada pacote falha se algum código fora de `testes/` importar esses módulos. A imagem dos mocks mantém `plataforma.testes`, porque o mock da Eq. 1 emite tokens com ele. Ela só substitui equipes que ainda não estão no ar (`--profile mocks`).
 - Cada imagem tem dois comandos: `api` (uvicorn) e `worker`.
 - O relay do outbox busca as mensagens com `SELECT … FOR UPDATE SKIP LOCKED` e é seguro com várias réplicas.
 - O serviço `migrate-<servico>` roda `alembic upgrade head` uma vez. A `api` e o `worker` dependem dele com `condition: service_completed_successfully`.
