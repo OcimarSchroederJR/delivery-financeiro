@@ -25,6 +25,8 @@ from avaliacoes.adaptadores.db.modelos import MensagemOutbox
 from avaliacoes.adaptadores.db.unidade_de_trabalho import UnidadeDeTrabalhoSql, fabrica_uow_sql
 from avaliacoes.api import criar_app
 from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
+from avaliacoes.aplicacao.saga import RetentativaDeEstornos, SagaEstorno
+from avaliacoes.composicao import dependencias_reais
 from avaliacoes.config import Config
 from avaliacoes.dominio.disputa import Disputa, MotivoDisputa, StatusDisputa
 from avaliacoes.worker import executar
@@ -167,3 +169,47 @@ class _UowQueCaiNoCommit(UnidadeDeTrabalhoSql):
 
     async def commit(self) -> None:
         raise ConnectionResetError("conexão com o banco caiu no commit")
+
+
+async def test_commit_perdido_reaproveita_o_201_gravado_sem_estorno_duplicado(
+    banco_migrado: str, rabbitmq_url: str, fabrica: async_sessionmaker[AsyncSession]
+) -> None:
+    uow = fabrica_uow_sql(fabrica)
+    agora = agora_utc()
+    disputa = _disputa_aberta()
+    disputa.aprovar(
+        valor_aprovado_centavos=None,
+        parecer=None,
+        agora=agora - timedelta(minutes=1),
+        primeira_tentativa_em=agora - timedelta(seconds=1),
+    )
+    await _gravar(uow, disputa)
+    pagamentos = PagamentosIdempotente()
+
+    with respx.mock(base_url=URL_PAGAMENTOS) as mock:
+        rota = mock.post(ROTA_ESTORNOS).mock(side_effect=pagamentos.responder)
+        async with dependencias_reais(_config(banco_migrado, rabbitmq_url), fabrica) as deps:
+            saga_que_cai = SagaEstorno(
+                lambda: _UowQueCaiNoCommit(fabrica),
+                deps.pagamentos,
+                deps.emissor_token,
+                politica=deps.politica,
+            )
+            with pytest.raises(ConnectionResetError):
+                await saga_que_cai.tentar(disputa.id)
+
+            pendente = await _final(uow, disputa.id)
+            assert pendente.status is StatusDisputa.ESTORNO_PENDENTE
+            assert pagamentos.criados == {f"disputa-{disputa.id}": "est-1"}
+
+            processadas = await RetentativaDeEstornos(deps.uow, deps.saga()).processar_lote()
+
+    assert processadas == 1
+    assert rota.call_count == 2
+    assert pagamentos.chaves_recebidas == [f"disputa-{disputa.id}"] * 2
+    assert len(pagamentos.criados) == 1
+    final = await _final(uow, disputa.id)
+    assert final.status is StatusDisputa.RESOLVIDA
+    assert final.estorno_id == "est-1"
+    assert final.tentativas_estorno == 1
+    assert await _eventos(fabrica, "disputa.resolvida") == 1
