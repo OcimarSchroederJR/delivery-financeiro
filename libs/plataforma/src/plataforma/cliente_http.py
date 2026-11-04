@@ -34,6 +34,7 @@ _log = obter_logger(__name__)
 
 METODOS_SEGUROS = frozenset({"GET", "HEAD", "OPTIONS"})
 TIMEOUT_PADRAO = httpx.Timeout(3.0, connect=1.0)
+PRAZO_TOTAL_PADRAO = 8.0
 
 
 class _RespostaDeErroDoServidor(Exception):
