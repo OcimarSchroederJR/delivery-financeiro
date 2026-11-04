@@ -8,15 +8,18 @@
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import timedelta
 
 import httpx
 import pytest
 from pydantic import SecretStr
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from avaliacoes.config import Config
 from avaliacoes.dominio.disputa import Disputa, MotivoDisputa
+from plataforma.db import criar_engine, criar_fabrica_sessoes
 from plataforma.tempo import agora_utc
 from plataforma.testes.tokens import (
     SEGREDO_SERVICO_TESTE,
@@ -76,3 +79,10 @@ def _disputa_aberta() -> Disputa:
         valor_pago_centavos=3200,
         agora=agora_utc() - timedelta(minutes=1),
     )
+
+
+@pytest.fixture
+async def fabrica(banco_migrado: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    engine = criar_engine(banco_migrado)
+    yield criar_fabrica_sessoes(engine)
+    await engine.dispose()
