@@ -18,6 +18,9 @@ if [[ -n "$token" ]]; then
   trap 'docker logout ghcr.io >/dev/null' EXIT
 fi
 
+tag="$(sed -n "s/^TAG='\{0,1\}\([^']*\)'\{0,1\}$/\1/p" .env)"
+echo ">> implantando TAG=${tag:-?}"
+
 "${compose[@]}" config --quiet
 "${compose[@]}" pull --quiet
 "${compose[@]}" up -d --remove-orphans
