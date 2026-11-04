@@ -4,6 +4,13 @@
 # para gerar os links do Swagger em /<servico>/docs.
 
 {$DOMINIO} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
 	# /pagamentos e /pagamentos/ (idem para os outros) levam ao Swagger do serviço.
 	@raiz_servico path_regexp servico ^/(pagamentos|notificacoes|avaliacoes)/?$
 	redir @raiz_servico /{re.servico.1}/docs
