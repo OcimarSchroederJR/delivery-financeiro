@@ -1,6 +1,6 @@
 """Configuração do serviço de Notificações (variáveis de ambiente)."""
 
-from typing import Annotated, Self
+from typing import Annotated, ClassVar, Self
 
 from pydantic import Field, SecretStr, model_validator
 
@@ -13,6 +13,11 @@ TtlMs = Annotated[int, Field(gt=0, le=3_600_000)]
 
 
 class Config(ConfiguracaoBase):
+    CAMPOS_EXPLICITOS_EM_PRODUCAO: ClassVar[tuple[str, ...]] = (
+        *ConfiguracaoBase.CAMPOS_EXPLICITOS_EM_PRODUCAO,
+        "identidade_url",
+    )
+
     servico: str = "notificacoes"
 
     identidade_url: str = "http://localhost:8001"
