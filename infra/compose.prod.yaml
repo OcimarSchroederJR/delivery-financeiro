@@ -5,6 +5,17 @@
 # Variáveis com ${VAR:?} são obrigatórias: o compose não sobe sem elas.
 name: financeiro-eq5
 
+# Ambiente comum às APIs, workers e migrações dos 3 serviços.
+x-ambiente-comum: &ambiente-comum
+  AMBIENTE: producao
+  LOG_FORMATO: json
+  LOG_NIVEL: ${LOG_NIVEL:-INFO}
+  RABBITMQ_URL: amqp://${RABBITMQ_USUARIO:?defina RABBITMQ_USUARIO no .env}:${RABBITMQ_SENHA:?defina RABBITMQ_SENHA no .env}@rabbitmq:5672/
+  JWKS_URL: ${JWKS_URL:?defina JWKS_URL no .env (JWKS da Equipe 1)}
+  TOKEN_SERVICO_SEGREDO: ${TOKEN_SERVICO_SEGREDO:?defina TOKEN_SERVICO_SEGREDO no .env}
+  OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
 services:
   rabbitmq:
     image: rabbitmq:4-management
