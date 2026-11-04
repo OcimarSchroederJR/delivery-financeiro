@@ -1,0 +1,22 @@
+# Proxy reverso da produção (spec §7.3). HTTPS automático para {$DOMINIO}
+# (ex.: financeiro-eq5.<ip>.sslip.io; com DOMINIO=localhost o Caddy usa a CA interna).
+# Cada API recebe o caminho sem o prefixo; o FastAPI usa ROOT_PATH=/<servico>
+# para gerar os links do Swagger em /<servico>/docs.
+
+{$DOMINIO} {
+	handle_path /pagamentos/* {
+		reverse_proxy pagamentos:8000
+	}
+
+	handle_path /notificacoes/* {
+		reverse_proxy notificacoes:8000
+	}
+
+	handle_path /avaliacoes/* {
+		reverse_proxy avaliacoes:8000
+	}
+
+	handle {
+		respond "Não encontrado" 404
+	}
+}
