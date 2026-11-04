@@ -39,6 +39,14 @@ x-ambiente-notificacoes: &ambiente-notificacoes
   SMTP_REMETENTE: notificacoes@financeiro-eq5.local
   EMAIL_ADMIN: ${EMAIL_ADMIN:-admin@financeiro-eq5.local}
 
+x-imagem-avaliacoes: &imagem-avaliacoes
+  image: ghcr.io/ocimarschroederjr/avaliacoes:${TAG:?defina TAG (tag das imagens no GHCR)}
+
+x-ambiente-avaliacoes: &ambiente-avaliacoes
+  <<: *ambiente-comum
+  ROOT_PATH: /avaliacoes
+  DATABASE_URL: postgresql+asyncpg://avaliacoes:${AVALIACOES_DB_SENHA:?defina AVALIACOES_DB_SENHA no .env}@db-avaliacoes:5432/avaliacoes
+
 services:
   rabbitmq:
     image: rabbitmq:4-management
@@ -176,7 +184,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  db-avaliacoes:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: avaliacoes
+      POSTGRES_PASSWORD: ${AVALIACOES_DB_SENHA:?defina AVALIACOES_DB_SENHA no .env}
+      POSTGRES_DB: avaliacoes
+    volumes:
+      - dados-avaliacoes:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avaliacoes -d avaliacoes"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-avaliacoes:
+    <<: *imagem-avaliacoes
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-avaliacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      db-avaliacoes:
+        condition: service_healthy
+    restart: "no"
+
 volumes:
   dados-rabbitmq:
   dados-pagamentos:
   dados-notificacoes:
+  dados-avaliacoes:
