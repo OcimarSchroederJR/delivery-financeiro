@@ -15,18 +15,25 @@ from datetime import timedelta
 
 import httpx
 import pytest
+import respx
+from asgi_lifespan import LifespanManager
 from pydantic import SecretStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from avaliacoes.adaptadores.db.modelos import MensagemOutbox
+from avaliacoes.adaptadores.db.unidade_de_trabalho import fabrica_uow_sql
+from avaliacoes.api import criar_app
 from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
 from avaliacoes.config import Config
-from avaliacoes.dominio.disputa import Disputa, MotivoDisputa
+from avaliacoes.dominio.disputa import Disputa, MotivoDisputa, StatusDisputa
+from avaliacoes.worker import executar
 from plataforma.db import criar_engine, criar_fabrica_sessoes
 from plataforma.tempo import agora_utc
 from plataforma.testes.tokens import (
     SEGREDO_SERVICO_TESTE,
+    GeradorDeTokens,
+    criar_verificador_de_teste,
 )
 
 pytestmark = pytest.mark.integracao
@@ -111,3 +118,45 @@ async def _final(uow: FabricaUnidadeDeTrabalho, disputa_id: uuid.UUID) -> Disput
         disputa = await u.disputas.obter(disputa_id)
     assert disputa is not None
     return disputa
+
+
+async def test_patch_e_worker_concluem_a_mesma_disputa_uma_unica_vez(
+    banco_migrado: str, rabbitmq_url: str, fabrica: async_sessionmaker[AsyncSession]
+) -> None:
+    uow = fabrica_uow_sql(fabrica)
+    disputa = _disputa_aberta()
+    await _gravar(uow, disputa)
+    config = _config(banco_migrado, rabbitmq_url)
+    gerador = GeradorDeTokens()
+    app = criar_app(config, verificador=criar_verificador_de_teste(gerador))
+    pagamentos = PagamentosIdempotente(segurar_ate_duas_em_voo=True)
+
+    parar = asyncio.Event()
+    with respx.mock(base_url=URL_PAGAMENTOS) as mock:
+        rota = mock.post(ROTA_ESTORNOS).mock(side_effect=pagamentos.responder)
+        worker = asyncio.create_task(executar(config, parar))
+        try:
+            async with LifespanManager(app) as gerenciador:
+                transporte = httpx.ASGITransport(app=gerenciador.app)
+                async with httpx.AsyncClient(transport=transporte, base_url="http://t") as api:
+                    resposta = await api.patch(
+                        f"/v1/disputas/{disputa.id}",
+                        json={"status": "procedente", "parecer": "ok"},
+                        headers={"Authorization": f"Bearer {gerador.emitir('admin-1', 'admin')}"},
+                    )
+        finally:
+            # O laço do worker termina o lote em curso antes de olhar ``parar``.
+            parar.set()
+            await asyncio.wait_for(worker, timeout=10)
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["status"] == StatusDisputa.RESOLVIDA.value
+    # As duas tentativas chegaram a Pagamentos ao mesmo tempo, com a mesma chave.
+    assert rota.call_count == 2
+    assert pagamentos.chaves_recebidas == [f"disputa-{disputa.id}"] * 2
+    assert len(pagamentos.criados) == 1
+    final = await _final(uow, disputa.id)
+    assert final.status is StatusDisputa.RESOLVIDA
+    assert final.estorno_id == "est-1"
+    assert final.tentativas_estorno == 1
+    assert await _eventos(fabrica, "disputa.resolvida") == 1
