@@ -11,6 +11,13 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 compose=(docker compose -f compose.prod.yaml)
 
+token=""
+[[ -t 0 ]] || token="$(cat)"
+if [[ -n "$token" ]]; then
+  printf '%s' "$token" | docker login ghcr.io -u "${GHCR_USUARIO:?defina GHCR_USUARIO}" --password-stdin
+  trap 'docker logout ghcr.io >/dev/null' EXIT
+fi
+
 "${compose[@]}" config --quiet
 "${compose[@]}" pull --quiet
 "${compose[@]}" up -d --remove-orphans
