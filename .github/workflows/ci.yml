@@ -111,6 +111,12 @@ jobs:
           $prod config --quiet
           $prod --profile mocks config --quiet
           $prod -f infra/compose.prod.local.yaml --profile mocks config --quiet
+      - name: Validar Caddyfile (formatação e configuração)
+        # Roda pelo compose para o Caddy receber DOMINIO e BASIC_AUTH_* como em produção.
+        run: |
+          docker compose -f infra/compose.prod.yaml --env-file infra/.env.local.example \
+            run --rm --no-deps -T caddy \
+            sh -c 'caddy fmt /etc/caddy/Caddyfile | diff /etc/caddy/Caddyfile - && caddy validate --config /etc/caddy/Caddyfile'
 
   ci-ok:
     name: ci-ok
