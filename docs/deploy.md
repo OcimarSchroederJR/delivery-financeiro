@@ -269,3 +269,9 @@ No seu computador:
 | Desligar a VM sem custo de computação (mantém o IP e o disco) | `az vm deallocate -g rg-financeiro-eq5 -n vm-financeiro-eq5` |
 | Ligar de novo | `az vm start -g rg-financeiro-eq5 -n vm-financeiro-eq5` |
 | Apagar tudo (VM, disco, IP, dados) | `az group delete --name rg-financeiro-eq5` |
+
+## 8. Deploy contínuo (CD)
+
+O workflow [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) roda a cada push na
+`main`. Também dá para rodá-lo à mão em *Actions → Deploy → Run workflow*. Um deploy por vez
+(`concurrency: deploy-producao`): um push novo espera o anterior terminar.
