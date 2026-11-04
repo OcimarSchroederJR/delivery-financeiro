@@ -12,6 +12,7 @@ Timeout, erro de rede, 5xx após retries ou circuito aberto viram
 ``ErroDependenciaIndisponivel`` (503).
 """
 
+import asyncio
 import time
 from collections.abc import Mapping
 from types import TracebackType
@@ -94,6 +95,10 @@ class ClienteHttp:
         repetivel = metodo in METODOS_SEGUROS or idempotency_key is not None
         tentativas = self._max_tentativas if repetivel else 1
 
+        async def chamar_com_prazo() -> httpx.Response:
+            async with asyncio.timeout(self.prazo_total):
+                return await chamar_com_retry()
+
         async def chamar_com_retry() -> httpx.Response:
             async for tentativa in AsyncRetrying(
                 stop=stop_after_attempt(tentativas),
@@ -116,7 +121,7 @@ class ClienteHttp:
             raise RuntimeError("tenacity encerrou sem resultado")  # pragma: no cover
 
         try:
-            return await self.breaker.executar(chamar_com_retry, e_falha=_e_falha_da_dependencia)
+            return await self.breaker.executar(chamar_com_prazo, e_falha=_e_falha_da_dependencia)
         except CircuitoAberto:
             _log.warning(
                 "http_saida_bloqueada",
