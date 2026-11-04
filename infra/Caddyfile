@@ -4,6 +4,10 @@
 # para gerar os links do Swagger em /<servico>/docs.
 
 {$DOMINIO} {
+	# /pagamentos e /pagamentos/ (idem para os outros) levam ao Swagger do serviço.
+	@raiz_servico path_regexp servico ^/(pagamentos|notificacoes|avaliacoes)/?$
+	redir @raiz_servico /{re.servico.1}/docs
+
 	handle_path /pagamentos/* {
 		reverse_proxy pagamentos:8000
 	}
