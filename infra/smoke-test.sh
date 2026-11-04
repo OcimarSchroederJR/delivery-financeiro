@@ -29,6 +29,7 @@ while true; do
     [[ "${codigo[$servico]}" == 200 ]] || restantes+=("$servico")
   done
   pendentes=("${restantes[@]+"${restantes[@]}"}")
+  echo "tentativa $tentativa: $(for s in "${servicos[@]}"; do printf '%s=%s ' "$s" "${codigo[$s]}"; done)"
   ((${#pendentes[@]} == 0)) && break
   ((SECONDS + intervalo < fim)) || break
   sleep "$intervalo"
