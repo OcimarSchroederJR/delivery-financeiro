@@ -7,6 +7,7 @@
 # - usuário "deploy" no grupo docker, só com login por chave;
 # - unattended-upgrades com as atualizações de segurança;
 # - ufw liberando só 22, 80 e 443 (o NSG do Azure faz o mesmo na borda);
+# - swap de 2 GB: 3 Postgres, RabbitMQ, Jaeger e 7 processos Python em 4 GB de RAM;
 #
 
 package_update: true
@@ -55,6 +56,10 @@ write_files:
         "log-driver": "json-file",
         "log-opts": { "max-size": "10m", "max-file": "5" }
       }
+
+swap:
+  filename: /swapfile
+  size: 2G
 
 runcmd:
   # Docker Engine e plugin compose pelo repositório oficial (docs.docker.com/engine/install/ubuntu).
