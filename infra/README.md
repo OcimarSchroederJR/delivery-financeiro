@@ -9,6 +9,9 @@ lado a lado no mesmo diretório.
 | `Caddyfile` | Proxy reverso com HTTPS automático e roteamento por path. |
 | `compose.prod.local.yaml` | Override só para testar na sua máquina: constrói as imagens a partir do código. Não vai para a VM. |
 | `.env.local.example` | Variáveis fictícias para o teste local (`DOMINIO=localhost`). |
+| `.env.producao.example` | Modelo do `.env` da VM, sem valores. |
+| `cloud-init.yaml` | Prepara a VM: Docker, usuário `deploy`, `unattended-upgrades`, `ufw`, swap. |
+| `azure/criar-vm.sh` | Cria a VM no Azure for Students com o cloud-init e o NSG (22, 80 e 443). |
 
 ## Rotas públicas
 
