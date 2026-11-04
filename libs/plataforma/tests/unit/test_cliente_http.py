@@ -142,3 +142,14 @@ async def test_prazo_total_corta_os_retries_e_vira_503() -> None:
     assert len(chamadas) == 2
     assert erro.value.dependencia == "pedidos"
     assert any(log["event"] == "http_saida_prazo_esgotado" for log in logs)
+
+
+async def test_prazo_total_esgotado_conta_como_falha_do_circuito() -> None:
+    breaker = CircuitBreaker("pedidos", limite_falhas=1)
+    transporte, _ = _transporte_lento(0.2, status=200)
+    async with ClienteHttp(
+        "pedidos", BASE, transporte=transporte, breaker=breaker, prazo_total=0.05
+    ) as cliente:
+        with pytest.raises(ErroDependenciaIndisponivel):
+            await cliente.get("/pedidos/1")
+    assert breaker.estado == "aberto"
