@@ -211,3 +211,18 @@ rm /tmp/env-producao
 ```
 
 No `.env`, use `TAG=<o mesmo SHA do passo 5.1>` e, com os mocks, `COMPOSE_PROFILES=mocks`.
+
+### 5.3 Subir a pilha
+
+```bash
+ssh -i $CHAVE deploy@$IP
+cd /opt/financeiro-eq5
+echo "<token com read:packages>" | docker login ghcr.io -u OcimarSchroederJR --password-stdin
+docker compose -f compose.prod.yaml pull
+docker compose -f compose.prod.yaml up -d
+docker logout ghcr.io
+docker compose -f compose.prod.yaml ps
+```
+
+Na primeira requisição HTTPS, o Caddy obtém o certificado da Let's Encrypt para o domínio
+sslip.io. Isso exige as portas 80 e 443 abertas, que o NSG já libera.
