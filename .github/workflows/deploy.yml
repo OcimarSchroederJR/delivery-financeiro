@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# Um deploy por vez; um novo push espera o anterior terminar (não cancela no meio do "up").
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
 env:
   REGISTRO: ghcr.io/ocimarschroederjr
 
