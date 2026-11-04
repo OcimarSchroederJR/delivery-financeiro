@@ -166,3 +166,23 @@ async def test_sem_prazo_total_nao_corta() -> None:
         resposta = await cliente.get("/pedidos/1")
     assert resposta.status_code == 200
     assert len(chamadas) == 1
+
+
+@pytest.mark.parametrize(
+    "erro_httpx",
+    [httpx.DecodingError("corpo corrompido"), httpx.TooManyRedirects("redirecionamentos")],
+)
+@respx.mock
+async def test_erro_httpx_que_nao_e_de_transporte_vira_503_sem_retry(
+    erro_httpx: httpx.HTTPError,
+) -> None:
+    breaker = CircuitBreaker("pedidos", limite_falhas=1)
+    rota = respx.get(f"{BASE}/pedidos/1").mock(side_effect=erro_httpx)
+    async with ClienteHttp("pedidos", BASE, breaker=breaker, espera_base=0) as cliente:
+        with pytest.raises(ErroDependenciaIndisponivel) as erro, capture_logs() as logs:
+            await cliente.get("/pedidos/1")
+    assert erro.value.dependencia == "pedidos"
+    assert rota.call_count == 1
+    assert breaker.estado == "aberto"
+    falha = next(log for log in logs if log["event"] == "http_saida_falhou")
+    assert falha["erro"] == type(erro_httpx).__name__
