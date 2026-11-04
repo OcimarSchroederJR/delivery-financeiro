@@ -17,6 +17,7 @@ concurrency:
 
 env:
   REGISTRO: ghcr.io/ocimarschroederjr
+  DIRETORIO_VM: /opt/financeiro-eq5
 
 jobs:
   imagens:
@@ -121,3 +122,13 @@ jobs:
             # Sem SSH_KNOWN_HOSTS, confia na chave que a VM apresentar agora (docs/deploy.md).
             ssh-keyscan -T 15 -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts
           fi
+
+      - name: Copiar compose, Caddyfile, script e .env para a VM
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USUARIO: ${{ secrets.SSH_USUARIO }}
+        run: >-
+          scp -i ~/.ssh/deploy -o BatchMode=yes -p
+          "$RUNNER_TEMP/vm/compose.prod.yaml" "$RUNNER_TEMP/vm/Caddyfile"
+          "$RUNNER_TEMP/vm/implantar.sh" "$RUNNER_TEMP/vm/.env"
+          "$SSH_USUARIO@$SSH_HOST:$DIRETORIO_VM/"
