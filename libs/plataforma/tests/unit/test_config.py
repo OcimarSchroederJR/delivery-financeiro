@@ -30,3 +30,10 @@ def test_config_padroes_da_spec() -> None:
 def test_config_exige_segredo_de_servico_com_32_caracteres() -> None:
     with pytest.raises(ValidationError):
         ConfiguracaoBase(servico="teste", token_servico_segredo=SecretStr("curto"))
+
+
+def test_config_recusa_prazo_total_nao_positivo() -> None:
+    with pytest.raises(ValidationError):
+        ConfiguracaoBase(
+            servico="teste", token_servico_segredo=SecretStr(SEGREDO), http_prazo_total=0
+        )
