@@ -31,6 +31,22 @@ Depois do primeiro deploy, cada merge na `main` atualiza a VM pelo pipeline de C
 Custo: uma B2s custa cerca de US$ 30–40/mês ligada, além do disco e do IP. Com
 `az vm deallocate` (seção 7), a VM deixa de cobrar computação e o IP estático é mantido.
 
+## 2. Gerar as chaves SSH
+
+São dois pares:
+
+- **Admin** (o seu): para entrar na VM como `azureuser`. Se você já tem `~/.ssh/id_ed25519.pub`,
+  use esse.
+- **Deploy** (do pipeline): usado só pelo GitHub Actions como usuário `deploy`. Gere um par novo,
+  sem senha:
+
+  ```bash
+  ssh-keygen -t ed25519 -N "" -C deploy-financeiro-eq5 -f ~/.ssh/deploy-financeiro-eq5
+  ```
+
+  A chave pública (`.pub`) vai para a VM pelo cloud-init. A privada vai para o secret
+  `SSH_CHAVE_PRIVADA` (seção 4) e não vai para nenhum outro lugar.
+
 ## Segredos e configuração
 
 Nenhum segredo real fica no repositório. Os valores ficam em **GitHub Secrets**, e o pipeline
