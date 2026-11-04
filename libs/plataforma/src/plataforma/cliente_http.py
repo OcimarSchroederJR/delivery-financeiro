@@ -165,7 +165,7 @@ class ClienteHttp:
             resposta = await self._cliente.request(
                 metodo, rota, json=json, params=params, headers=headers
             )
-        except httpx.TransportError as erro:
+        except httpx.HTTPError as erro:
             _log.warning(
                 "http_saida_falhou",
                 dependencia=self.dependencia,
