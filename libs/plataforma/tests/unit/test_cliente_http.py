@@ -158,3 +158,11 @@ async def test_prazo_total_esgotado_conta_como_falha_do_circuito() -> None:
 async def test_prazo_total_padrao_e_8_segundos() -> None:
     async with ClienteHttp("pedidos", BASE) as cliente:
         assert cliente.prazo_total == PRAZO_TOTAL_PADRAO == 8.0
+
+
+async def test_sem_prazo_total_nao_corta() -> None:
+    transporte, chamadas = _transporte_lento(0.05, status=200)
+    async with ClienteHttp("pedidos", BASE, transporte=transporte, prazo_total=None) as cliente:
+        resposta = await cliente.get("/pedidos/1")
+    assert resposta.status_code == 200
+    assert len(chamadas) == 1
