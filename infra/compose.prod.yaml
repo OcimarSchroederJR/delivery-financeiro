@@ -32,6 +32,12 @@ x-ambiente-notificacoes: &ambiente-notificacoes
   <<: *ambiente-comum
   ROOT_PATH: /notificacoes
   DATABASE_URL: postgresql+asyncpg://notificacoes:${NOTIFICACOES_DB_SENHA:?defina NOTIFICACOES_DB_SENHA no .env}@db-notificacoes:5432/notificacoes
+  IDENTIDADE_URL: ${IDENTIDADE_URL:?defina IDENTIDADE_URL no .env (API da Equipe 1)}
+  WEBHOOK_SEGREDO_CIFRAGEM: ${WEBHOOK_SEGREDO_CIFRAGEM:?defina WEBHOOK_SEGREDO_CIFRAGEM no .env}
+  SMTP_HOST: mailpit
+  SMTP_PORTA: "1025"
+  SMTP_REMETENTE: notificacoes@financeiro-eq5.local
+  EMAIL_ADMIN: ${EMAIL_ADMIN:-admin@financeiro-eq5.local}
 
 services:
   rabbitmq:
@@ -142,6 +148,33 @@ services:
       db-notificacoes:
         condition: service_healthy
     restart: "no"
+
+  notificacoes:
+    <<: *imagem-notificacoes
+    environment: *ambiente-notificacoes
+    depends_on:
+      migrate-notificacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notificacoes-worker:
+    <<: *imagem-notificacoes
+    command: ["notificacoes-worker"]
+    environment: *ambiente-notificacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-notificacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   dados-rabbitmq:
