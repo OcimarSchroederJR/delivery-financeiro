@@ -247,3 +247,22 @@ Swagger público:
 Se algo não responder, comece por `docker compose -f compose.prod.yaml ps` e
 `docker compose -f compose.prod.yaml logs <servico>`. A tabela "O que o boot recusa em produção"
 (seção 4) explica os erros de configuração mais comuns.
+
+## 7. Operação
+
+Todos os comandos rodam na VM, em `/opt/financeiro-eq5`.
+
+| Tarefa | Comando |
+|---|---|
+| Ver os logs de um serviço | `docker compose -f compose.prod.yaml logs -f --tail 100 pagamentos` |
+| Voltar para uma versão anterior | troque `TAG=` no `.env` pelo SHA anterior e rode `pull` + `up -d` |
+| Reiniciar um serviço | `docker compose -f compose.prod.yaml restart avaliacoes-worker` |
+| Liberar disco | `docker image prune -af --filter "until=168h"` |
+
+No seu computador:
+
+| Tarefa | Comando |
+|---|---|
+| Desligar a VM sem custo de computação (mantém o IP e o disco) | `az vm deallocate -g rg-financeiro-eq5 -n vm-financeiro-eq5` |
+| Ligar de novo | `az vm start -g rg-financeiro-eq5 -n vm-financeiro-eq5` |
+| Apagar tudo (VM, disco, IP, dados) | `az group delete --name rg-financeiro-eq5` |
