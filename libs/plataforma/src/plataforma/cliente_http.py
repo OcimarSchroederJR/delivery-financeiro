@@ -9,8 +9,9 @@
 - correlation id propagado e ``traceparent`` via instrumentação do httpx.
 
 Respostas < 500 são devolvidas ao chamador (o adapter decide o que 404/409 significam).
-Timeout, erro de rede, 5xx após retries ou circuito aberto viram
-``ErroDependenciaIndisponivel`` (503).
+Timeout, erro de rede, outro erro do httpx (ex.: corpo corrompido), 5xx após retries
+ou prazo total esgotado viram ``ErroDependenciaIndisponivel`` (503); circuito aberto
+levanta ``CircuitoAberto``.
 """
 
 import asyncio
