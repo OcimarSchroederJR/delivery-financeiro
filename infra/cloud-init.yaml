@@ -28,6 +28,17 @@ users:
 groups:
   - docker
 
+ssh_pwauth: false
+disable_root: true
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-financeiro-eq5.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+
 runcmd:
   # Docker Engine e plugin compose pelo repositório oficial (docs.docker.com/engine/install/ubuntu).
   - install -m 0755 -d /etc/apt/keyrings
@@ -43,3 +54,4 @@ runcmd:
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
   - usermod -aG docker deploy
+  - systemctl reload ssh
