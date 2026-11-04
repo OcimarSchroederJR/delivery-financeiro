@@ -107,9 +107,9 @@ Em *Settings → Secrets and variables → Actions → New repository secret*, o
 
 | Secret | Para quê | Como gerar |
 |---|---|---|
-| `SSH_HOST` | IP público da VM | Portal do Azure (#35) |
-| `SSH_USUARIO` | Usuário de deploy na VM (`deploy`) | Criado pelo cloud-init (#35) |
-| `SSH_CHAVE_PRIVADA` | Chave privada do par usado pelo pipeline | `ssh-keygen -t ed25519 -C deploy-financeiro-eq5 -f deploy` |
+| `SSH_HOST` | IP público da VM | Saída do `criar-vm.sh` (seção 3) |
+| `SSH_USUARIO` | Usuário de deploy na VM (`deploy`) | Criado pelo cloud-init (seção 3) |
+| `SSH_CHAVE_PRIVADA` | Chave privada do par usado pelo pipeline | Conteúdo de `~/.ssh/deploy-financeiro-eq5` (seção 2) |
 | `DOMINIO` | Domínio do Caddy, por exemplo `financeiro-eq5.<ip>.sslip.io` | A partir do IP |
 | `BASIC_AUTH_USUARIO` | Login de `/jaeger` e `/mailpit` | Livre |
 | `BASIC_AUTH_HASH` | Hash bcrypt da senha desse login | `docker run --rm caddy:2.10.2-alpine caddy hash-password --plaintext '<senha>'` |
