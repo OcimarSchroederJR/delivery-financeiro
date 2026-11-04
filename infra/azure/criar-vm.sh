@@ -19,6 +19,10 @@ set -euo pipefail
 CHAVE_ADMIN="${CHAVE_ADMIN:-$HOME/.ssh/id_ed25519.pub}"
 GRUPO="${GRUPO:-rg-financeiro-eq5}"
 REGIAO="${REGIAO:-eastus}"
+VM="${VM:-vm-financeiro-eq5}"
+TAMANHO="${TAMANHO:-Standard_B2s}"
+IMAGEM="Canonical:ubuntu-24_04-lts:server:latest"
+ADMIN="azureuser"
 
 raiz="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 modelo="$raiz/infra/cloud-init.yaml"
@@ -36,3 +40,18 @@ sed "s|__CHAVE_PUBLICA_DEPLOY__|$chave_deploy|" "$modelo" > "$custom_data"
 
 echo ">> resource group $GRUPO em $REGIAO"
 az group create --name "$GRUPO" --location "$REGIAO" --output none
+
+echo ">> VM $VM ($TAMANHO, Ubuntu 24.04)"
+az vm create \
+  --resource-group "$GRUPO" \
+  --name "$VM" \
+  --image "$IMAGEM" \
+  --size "$TAMANHO" \
+  --admin-username "$ADMIN" \
+  --ssh-key-values "$CHAVE_ADMIN" \
+  --authentication-type ssh \
+  --public-ip-sku Standard \
+  --nsg-rule SSH \
+  --os-disk-size-gb 30 \
+  --custom-data "$custom_data" \
+  --output none
