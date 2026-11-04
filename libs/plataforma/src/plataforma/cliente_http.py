@@ -140,7 +140,7 @@ class ClienteHttp:
                 prazo_total=self.prazo_total,
             )
             raise ErroDependenciaIndisponivel(self.dependencia) from erro
-        except (httpx.TransportError, _RespostaDeErroDoServidor) as erro:
+        except (httpx.HTTPError, _RespostaDeErroDoServidor) as erro:
             raise ErroDependenciaIndisponivel(self.dependencia) from erro
 
     async def _enviar(
