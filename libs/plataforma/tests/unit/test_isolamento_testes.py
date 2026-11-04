@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import plataforma
 from plataforma.testes.isolamento import importacoes_de_testes
 
 
@@ -20,3 +21,7 @@ def test_acha_importacoes_de_testes_fora_do_pacote_testes(tmp_path: Path) -> Non
         "relativo.py: .testes",
         "sub/modulo.py: servico.testes.fakes",
     ]
+
+
+def test_codigo_de_producao_da_plataforma_nao_importa_testes() -> None:
+    assert importacoes_de_testes(Path(plataforma.__file__).parent) == []
