@@ -54,6 +54,7 @@ class ClienteHttp:
         url_base: str,
         *,
         timeout: httpx.Timeout = TIMEOUT_PADRAO,
+        prazo_total: float | None = PRAZO_TOTAL_PADRAO,
         breaker: CircuitBreaker | None = None,
         max_tentativas: int = 3,
         espera_base: float = 0.2,
@@ -62,6 +63,7 @@ class ClienteHttp:
     ) -> None:
         self.dependencia = dependencia
         self.breaker = breaker or CircuitBreaker(dependencia)
+        self.prazo_total = prazo_total
         self._max_tentativas = max_tentativas
         self._espera_base = espera_base
         self._espera_maxima = espera_maxima
