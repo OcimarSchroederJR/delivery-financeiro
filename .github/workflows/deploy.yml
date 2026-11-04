@@ -63,3 +63,41 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.nome }}
           cache-to: type=gha,mode=max,scope=${{ matrix.nome }}
+
+  deploy:
+    name: deploy na VM
+    needs: imagens
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Gerar o .env a partir dos Secrets
+        env:
+          TAG: ${{ github.sha }}
+          DOMINIO: ${{ secrets.DOMINIO }}
+          BASIC_AUTH_USUARIO: ${{ secrets.BASIC_AUTH_USUARIO }}
+          BASIC_AUTH_HASH: ${{ secrets.BASIC_AUTH_HASH }}
+          TOKEN_SERVICO_SEGREDO: ${{ secrets.TOKEN_SERVICO_SEGREDO }}
+          WEBHOOK_SEGREDO_CIFRAGEM: ${{ secrets.WEBHOOK_SEGREDO_CIFRAGEM }}
+          RABBITMQ_USUARIO: ${{ secrets.RABBITMQ_USUARIO }}
+          RABBITMQ_SENHA: ${{ secrets.RABBITMQ_SENHA }}
+          PAGAMENTOS_DB_SENHA: ${{ secrets.PAGAMENTOS_DB_SENHA }}
+          NOTIFICACOES_DB_SENHA: ${{ secrets.NOTIFICACOES_DB_SENHA }}
+          AVALIACOES_DB_SENHA: ${{ secrets.AVALIACOES_DB_SENHA }}
+          JWKS_URL: ${{ secrets.JWKS_URL }}
+          IDENTIDADE_URL: ${{ secrets.IDENTIDADE_URL }}
+          PEDIDOS_URL: ${{ secrets.PEDIDOS_URL }}
+          COMPOSE_PROFILES: ${{ secrets.COMPOSE_PROFILES }}
+          EMAIL_ADMIN: ${{ secrets.EMAIL_ADMIN }}
+          LOG_NIVEL: ${{ secrets.LOG_NIVEL }}
+          OTEL_HABILITADO: ${{ secrets.OTEL_HABILITADO }}
+          IDENTIDADE_CREDENCIAL: ${{ secrets.IDENTIDADE_CREDENCIAL }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/vm"
+          umask 077
+          bash infra/gerar-env.sh > "$RUNNER_TEMP/vm/.env"
+          cp infra/compose.prod.yaml infra/Caddyfile infra/implantar.sh "$RUNNER_TEMP/vm/"
