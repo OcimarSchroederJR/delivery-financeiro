@@ -16,6 +16,14 @@ x-ambiente-comum: &ambiente-comum
   OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
   OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
 
+x-imagem-pagamentos: &imagem-pagamentos
+  image: ghcr.io/ocimarschroederjr/pagamentos:${TAG:?defina TAG (tag das imagens no GHCR)}
+
+x-ambiente-pagamentos: &ambiente-pagamentos
+  <<: *ambiente-comum
+  ROOT_PATH: /pagamentos
+  DATABASE_URL: postgresql+asyncpg://pagamentos:${PAGAMENTOS_DB_SENHA:?defina PAGAMENTOS_DB_SENHA no .env}@db-pagamentos:5432/pagamentos
+
 services:
   rabbitmq:
     image: rabbitmq:4-management
@@ -51,5 +59,32 @@ services:
     command: ["--set=extensions.jaeger_query.base_path=/jaeger"]
     restart: unless-stopped
 
+  db-pagamentos:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pagamentos
+      POSTGRES_PASSWORD: ${PAGAMENTOS_DB_SENHA:?defina PAGAMENTOS_DB_SENHA no .env}
+      POSTGRES_DB: pagamentos
+    volumes:
+      - dados-pagamentos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagamentos -d pagamentos"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-pagamentos:
+    <<: *imagem-pagamentos
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-pagamentos
+    healthcheck:
+      disable: true
+    depends_on:
+      db-pagamentos:
+        condition: service_healthy
+    restart: "no"
+
 volumes:
   dados-rabbitmq:
+  dados-pagamentos:
