@@ -55,3 +55,7 @@ az vm create \
   --os-disk-size-gb 30 \
   --custom-data "$custom_data" \
   --output none
+
+echo ">> NSG: liberando 80 e 443 (o 22 já veio do --nsg-rule SSH)"
+az vm open-port --resource-group "$GRUPO" --name "$VM" --port 80 --priority 1010 --output none
+az vm open-port --resource-group "$GRUPO" --name "$VM" --port 443 --priority 1020 --output none
