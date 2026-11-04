@@ -105,3 +105,19 @@ jobs:
       # Falha aqui, antes de tocar na VM, se faltar alguma variável obrigatória (${VAR:?}).
       - name: Validar o compose com o .env
         run: docker compose -f "$RUNNER_TEMP/vm/compose.prod.yaml" --env-file "$RUNNER_TEMP/vm/.env" config --quiet
+
+      - name: Configurar o SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_CHAVE_PRIVADA: ${{ secrets.SSH_CHAVE_PRIVADA }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_CHAVE_PRIVADA" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            # Sem SSH_KNOWN_HOSTS, confia na chave que a VM apresentar agora (docs/deploy.md).
+            ssh-keyscan -T 15 -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts
+          fi
