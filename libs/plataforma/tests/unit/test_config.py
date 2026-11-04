@@ -27,3 +27,29 @@ def test_config_padroes_da_spec() -> None:
 def test_config_exige_segredo_de_servico_com_32_caracteres() -> None:
     with pytest.raises(ValidationError):
         ConfiguracaoBase(servico="teste", token_servico_segredo=SecretStr("curto"))
+
+
+# --- Produção (spec §7.3): nada de valores de desenvolvimento -------------------------
+
+SEGREDO_DE_DESENVOLVIMENTO = "segredo-local-financeiro-eq5-troque-em-producao"
+URLS_DE_PRODUCAO = {
+    "database_url": "postgresql+asyncpg://u:s@db:5432/x",
+    "rabbitmq_url": "amqp://u:s@rabbitmq:5672/",
+    "jwks_url": "https://identidade.exemplo/.well-known/jwks.json",
+}
+
+
+def test_producao_recusa_o_segredo_de_servico_de_desenvolvimento(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TOKEN_SERVICO_SEGREDO", SEGREDO_DE_DESENVOLVIMENTO)
+    with pytest.raises(ValidationError, match="TOKEN_SERVICO_SEGREDO") as erro:
+        ConfiguracaoBase(servico="teste", ambiente="producao", **URLS_DE_PRODUCAO)
+    assert SEGREDO_DE_DESENVOLVIMENTO not in str(erro.value)
+
+
+def test_fora_de_producao_aceita_o_segredo_de_desenvolvimento() -> None:
+    config = ConfiguracaoBase(
+        servico="teste", token_servico_segredo=SecretStr(SEGREDO_DE_DESENVOLVIMENTO)
+    )
+    assert config.ambiente == "local"
