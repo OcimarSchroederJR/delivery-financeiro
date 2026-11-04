@@ -177,3 +177,23 @@ A regra fica em `libs/plataforma/src/plataforma/config.py`
 
 Faça uma vez, para conferir a VM antes de ligar o CD. Depois, o pipeline (#36) repete estes
 passos a cada merge na `main`.
+
+### 5.1 Publicar as imagens no GHCR
+
+Crie um token clássico em *GitHub → Settings → Developer settings → Personal access tokens*
+com o escopo `write:packages`. Depois, na raiz do repositório:
+
+```bash
+echo "<token>" | docker login ghcr.io -u OcimarSchroederJR --password-stdin
+TAG=$(git rev-parse HEAD)
+for s in pagamentos notificacoes avaliacoes; do
+  docker build -f services/$s/Dockerfile -t ghcr.io/ocimarschroederjr/$s:$TAG .
+  docker push ghcr.io/ocimarschroederjr/$s:$TAG
+done
+docker build -f mocks/Dockerfile -t ghcr.io/ocimarschroederjr/mocks:$TAG .
+docker push ghcr.io/ocimarschroederjr/mocks:$TAG
+```
+
+Os pacotes do GHCR nascem privados. A VM entra no GHCR com um token na hora do `pull`
+(passo 5.3). Se preferir, deixe cada pacote público em *Package settings → Change visibility*,
+já que o repositório é público.
