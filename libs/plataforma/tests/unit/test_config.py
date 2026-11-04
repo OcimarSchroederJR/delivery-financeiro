@@ -53,3 +53,15 @@ def test_fora_de_producao_aceita_o_segredo_de_desenvolvimento() -> None:
         servico="teste", token_servico_segredo=SecretStr(SEGREDO_DE_DESENVOLVIMENTO)
     )
     assert config.ambiente == "local"
+
+
+def test_erro_de_configuracao_nao_expoe_os_valores_recebidos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # O erro de boot vai para o log; segredos e URLs com senha não podem aparecer nele.
+    monkeypatch.setenv("TOKEN_SERVICO_SEGREDO", "segredo-curto-vazado")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:senha-do-banco@db:5432/x")
+    with pytest.raises(ValidationError, match="token_servico_segredo") as erro:
+        ConfiguracaoBase(servico="teste")
+    assert "segredo-curto-vazado" not in str(erro.value)
+    assert "senha-do-banco" not in str(erro.value)
