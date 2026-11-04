@@ -336,7 +336,7 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 |---|---|
 | Timeout | 1 s para conectar e 3 s para ler em todo cliente httpx, configurável (`HTTP_TIMEOUT_*`). Prazo total de 8 s por chamada lógica, somando retries e backoff (`HTTP_PRAZO_TOTAL`): ao esgotar, a tentativa em curso é cancelada e a resposta é `503` |
 | Retry | tenacity com até 3 tentativas, backoff exponencial e jitter, apenas em GET e em POST com `Idempotency-Key`; nunca em 4xx |
-| Circuit breaker | um por dependência; abre após 5 falhas consecutivas; meio-aberto após 30 s; aberto → `503 DEPENDENCIA_INDISPONIVEL` imediato |
+| Circuit breaker | um por dependência; abre após 5 falhas consecutivas; meio-aberto após 30 s; aberto → `503 DEPENDENCIA_INDISPONIVEL` imediato. Contam como falha: erro de rede ou timeout, qualquer outro erro do httpx (ex.: corpo corrompido), `5xx` e prazo total esgotado |
 | JWKS | cache com TTL; se a Eq. 1 estiver fora, continua validando com a última chave conhecida |
 | Broker fora | as APIs continuam operando; o outbox acumula; o relay publica ao reconectar |
 | Exceções | handler global converte tudo para o formato de erro; `500` nunca expõe stack trace |
