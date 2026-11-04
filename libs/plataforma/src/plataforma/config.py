@@ -34,6 +34,7 @@ class ConfiguracaoBase(BaseSettings):
 
     http_timeout_conexao: float = Field(default=1.0, gt=0)
     http_timeout_leitura: float = Field(default=3.0, gt=0)
+    http_prazo_total: float = Field(default=8.0, gt=0)
 
     otel_habilitado: bool = False
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
