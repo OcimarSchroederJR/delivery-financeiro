@@ -130,6 +130,15 @@ class ClienteHttp:
                 rota=rota,
             )
             raise
+        except TimeoutError as erro:
+            _log.warning(
+                "http_saida_prazo_esgotado",
+                dependencia=self.dependencia,
+                metodo=metodo,
+                rota=rota,
+                prazo_total=self.prazo_total,
+            )
+            raise ErroDependenciaIndisponivel(self.dependencia) from erro
         except (httpx.TransportError, _RespostaDeErroDoServidor) as erro:
             raise ErroDependenciaIndisponivel(self.dependencia) from erro
 
