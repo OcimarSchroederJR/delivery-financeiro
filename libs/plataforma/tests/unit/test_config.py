@@ -23,6 +23,7 @@ def test_config_padroes_da_spec() -> None:
     config = ConfiguracaoBase(servico="teste", token_servico_segredo=SecretStr(SEGREDO))
     assert config.jwt_claim_papel == "papel"
     assert (config.http_timeout_conexao, config.http_timeout_leitura) == (1.0, 3.0)
+    assert config.http_prazo_total == 8.0
     assert config.otel_habilitado is False
 
 
