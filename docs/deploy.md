@@ -177,8 +177,9 @@ A regra fica em `libs/plataforma/src/plataforma/config.py`
 
 ## 5. Primeiro deploy manual
 
-Faça uma vez, para conferir a VM antes de ligar o CD. Depois, o pipeline (#36) repete estes
-passos a cada merge na `main`.
+Faça uma vez, para conferir a VM antes de ligar o CD. Depois, o pipeline (seção 8) repete
+estes passos a cada merge na `main`. Uma alternativa a este passo é rodar o workflow *Deploy* à
+mão (*Actions → Deploy → Run workflow*), depois de cadastrar os Secrets.
 
 ### 5.1 Publicar as imagens no GHCR
 
