@@ -7,9 +7,21 @@ from notificacoes.aplicacao.solicitante import PoliticaDeUrl
 from notificacoes.config import Config
 from plataforma.testes.tokens import SEGREDO_SERVICO_TESTE
 
+# Em produção as URLs de infraestrutura e das outras equipes vêm sempre explícitas.
+URLS_DE_PRODUCAO: dict[str, Any] = {
+    "database_url": "postgresql+asyncpg://u:s@db:5432/notificacoes",
+    "rabbitmq_url": "amqp://u:s@rabbitmq:5672/",
+    "jwks_url": "https://identidade.exemplo/.well-known/jwks.json",
+    "identidade_url": "https://identidade.exemplo",
+}
+
 
 def _config(**mudancas: Any) -> Config:
     return Config(token_servico_segredo=SecretStr(SEGREDO_SERVICO_TESTE), **mudancas)
+
+
+def _producao(**mudancas: Any) -> Config:
+    return _config(ambiente="producao", **URLS_DE_PRODUCAO, **mudancas)
 
 
 def test_padroes_da_spec() -> None:
@@ -33,10 +45,16 @@ def test_ttls_invalidos(ttls: tuple[int, ...]) -> None:
 
 
 def test_producao_exige_chave_de_cifragem() -> None:
-    with pytest.raises(ValidationError):
-        _config(ambiente="producao")
-    config = _config(ambiente="producao", webhook_segredo_cifragem=SecretStr("c" * 32))
+    with pytest.raises(ValidationError, match="WEBHOOK_SEGREDO_CIFRAGEM"):
+        _producao()
+    config = _producao(webhook_segredo_cifragem=SecretStr("c" * 32))
     assert config.segredo_de_cifragem() == "c" * 32
+
+
+def test_producao_exige_a_url_de_identidade_explicita() -> None:
+    urls = {campo: valor for campo, valor in URLS_DE_PRODUCAO.items() if campo != "identidade_url"}
+    with pytest.raises(ValidationError, match="IDENTIDADE_URL"):
+        _config(ambiente="producao", webhook_segredo_cifragem=SecretStr("c" * 32), **urls)
 
 
 def test_segredo_de_cifragem_fora_de_producao_usa_o_token_de_servico() -> None:
@@ -45,7 +63,7 @@ def test_segredo_de_cifragem_fora_de_producao_usa_o_token_de_servico() -> None:
 
 def test_politica_de_url_por_ambiente() -> None:
     assert _config().politica_de_url() == PoliticaDeUrl(True, True)
-    producao = _config(ambiente="producao", webhook_segredo_cifragem=SecretStr("c" * 32))
+    producao = _producao(webhook_segredo_cifragem=SecretStr("c" * 32))
     assert producao.politica_de_url() == PoliticaDeUrl(False, False)
 
 
