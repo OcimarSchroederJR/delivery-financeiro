@@ -47,6 +47,53 @@ São dois pares:
   A chave pública (`.pub`) vai para a VM pelo cloud-init. A privada vai para o secret
   `SSH_CHAVE_PRIVADA` (seção 4) e não vai para nenhum outro lugar.
 
+## 3. Criar a VM
+
+Na raiz do repositório:
+
+```bash
+CHAVE_DEPLOY=~/.ssh/deploy-financeiro-eq5.pub ./infra/azure/criar-vm.sh
+```
+
+O script [`infra/azure/criar-vm.sh`](../infra/azure/criar-vm.sh) executa:
+
+```bash
+az group create --name rg-financeiro-eq5 --location eastus
+az vm create --resource-group rg-financeiro-eq5 --name vm-financeiro-eq5 \
+  --image Canonical:ubuntu-24_04-lts:server:latest --size Standard_B2s \
+  --admin-username azureuser --ssh-key-values ~/.ssh/id_ed25519.pub --authentication-type ssh \
+  --public-ip-sku Standard --nsg-rule SSH --os-disk-size-gb 30 \
+  --custom-data <infra/cloud-init.yaml com a chave do deploy>
+az vm open-port --resource-group rg-financeiro-eq5 --name vm-financeiro-eq5 --port 80 --priority 1010
+az vm open-port --resource-group rg-financeiro-eq5 --name vm-financeiro-eq5 --port 443 --priority 1020
+```
+
+- **NSG:** libera só 22 (`--nsg-rule SSH`), 80 e 443. O cloud-init aplica as mesmas regras no
+  `ufw`.
+- **IP público:** estático (SKU Standard). O script imprime o IP e o domínio
+  `financeiro-eq5.<ip>.sslip.io`. O sslip.io resolve qualquer `<algo>.<ip>.sslip.io` para
+  `<ip>`, então não é preciso configurar DNS.
+- **Região:** a assinatura de estudante pode restringir regiões. Se aparecer
+  `RequestDisallowedByAzure` ou `SkuNotAvailable`, rode de novo com outra região, por exemplo
+  `REGIAO=eastus2` ou `REGIAO=brazilsouth`. Antes, apague o grupo:
+  `az group delete --name rg-financeiro-eq5`.
+- **Outros ajustes:** `GRUPO`, `VM`, `TAMANHO` e `CHAVE_ADMIN` também são variáveis do script.
+
+O [`infra/cloud-init.yaml`](../infra/cloud-init.yaml) leva alguns minutos depois que o
+`az vm create` termina. Ele:
+
+- instala o Docker Engine e o plugin compose (repositório oficial);
+- cria o usuário `deploy` no grupo `docker`, só com login por chave;
+- habilita `unattended-upgrades`;
+- liga o `ufw` com 22/80/443, cria 2 GB de swap e o diretório `/opt/financeiro-eq5`.
+
+Para conferir:
+
+```bash
+ssh azureuser@<ip> sudo cloud-init status --wait --long   # status: done
+ssh -i ~/.ssh/deploy-financeiro-eq5 deploy@<ip> docker compose version
+```
+
 ## Segredos e configuração
 
 Nenhum segredo real fica no repositório. Os valores ficam em **GitHub Secrets**, e o pipeline
