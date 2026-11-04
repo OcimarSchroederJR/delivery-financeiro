@@ -281,7 +281,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # Ãšnico serviÃ§o com portas publicadas: HTTPS automÃ¡tico e roteamento por path (Caddyfile).
+  # Único serviço com portas publicadas: HTTPS automático e roteamento por path (Caddyfile).
   caddy:
     image: caddy:2.10.2-alpine
     environment:
