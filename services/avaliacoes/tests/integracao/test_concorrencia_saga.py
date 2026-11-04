@@ -8,6 +8,7 @@
 """
 
 import asyncio
+import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -103,3 +104,10 @@ async def _eventos(fabrica: async_sessionmaker[AsyncSession], tipo: str) -> int:
             select(func.count()).select_from(MensagemOutbox).where(MensagemOutbox.tipo == tipo)
         )
     return int(total or 0)
+
+
+async def _final(uow: FabricaUnidadeDeTrabalho, disputa_id: uuid.UUID) -> Disputa:
+    async with uow() as u:
+        disputa = await u.disputas.obter(disputa_id)
+    assert disputa is not None
+    return disputa
