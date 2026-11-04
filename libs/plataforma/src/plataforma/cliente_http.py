@@ -45,7 +45,7 @@ class _RespostaDeErroDoServidor(Exception):
 
 
 def _e_falha_da_dependencia(erro: Exception) -> bool:
-    return isinstance(erro, httpx.TransportError | _RespostaDeErroDoServidor)
+    return isinstance(erro, httpx.TransportError | _RespostaDeErroDoServidor | TimeoutError)
 
 
 class ClienteHttp:
