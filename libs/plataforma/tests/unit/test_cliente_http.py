@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 
 import httpx
@@ -114,3 +115,14 @@ async def test_loga_antes_e_depois_com_dependencia_status_e_duracao(cliente: Cli
     assert depois["status"] == 200
     assert isinstance(depois["duracao_ms"], float)
     assert "segredo-nao-logar" not in str(logs)
+
+
+def _transporte_lento(atraso: float, status: int = 502) -> tuple[httpx.MockTransport, list[int]]:
+    chamadas: list[int] = []
+
+    async def responder(_requisicao: httpx.Request) -> httpx.Response:
+        chamadas.append(1)
+        await asyncio.sleep(atraso)
+        return httpx.Response(status)
+
+    return httpx.MockTransport(responder), chamadas
