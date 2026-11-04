@@ -351,7 +351,7 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 - **Logs de integração obrigatórios:**
   - toda chamada HTTP de saída gera uma linha antes e uma depois, com dependência, método, rota, status e duração;
   - todo evento publicado ou consumido gera uma linha com `tipo` e `mensagem_id`, e informa se a inbox o considerou novo ou duplicado.
-- **Dados sensíveis:** número de cartão, CVV, token JWT e segredo de webhook nunca aparecem em log. Isso é garantido por um processor de redação no structlog e coberto por teste.
+- **Dados sensíveis:** número de cartão, CVV, titular, validade, token JWT e segredo de webhook nunca aparecem em log. Isso é garantido por um processor de redação no structlog e coberto por teste.
 - **Correlation ID:** gerado por middleware se a requisição não trouxer um, propagado pelo httpx e gravado no envelope dos eventos.
 - **OpenTelemetry:** instrumentação de FastAPI, httpx, SQLAlchemy e do cliente AMQP, exportando via OTLP para o Jaeger. O header `traceparent` é propagado também para as outras equipes.
 
