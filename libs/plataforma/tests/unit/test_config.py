@@ -10,11 +10,13 @@ def test_config_le_variaveis_de_ambiente(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv("TOKEN_SERVICO_SEGREDO", SEGREDO)
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:s@db:5432/x")
     monkeypatch.setenv("HTTP_TIMEOUT_LEITURA", "5")
+    monkeypatch.setenv("HTTP_PRAZO_TOTAL", "6.5")
     config = ConfiguracaoBase(servico="teste")
     assert config.database_url == "postgresql+asyncpg://u:s@db:5432/x"
     assert config.token_servico_segredo.get_secret_value() == SEGREDO
     timeout = config.timeout_http()
     assert (timeout.connect, timeout.read) == (1.0, 5.0)
+    assert config.http_prazo_total == 6.5
 
 
 def test_config_padroes_da_spec() -> None:
