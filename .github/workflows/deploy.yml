@@ -132,3 +132,14 @@ jobs:
           "$RUNNER_TEMP/vm/compose.prod.yaml" "$RUNNER_TEMP/vm/Caddyfile"
           "$RUNNER_TEMP/vm/implantar.sh" "$RUNNER_TEMP/vm/.env"
           "$SSH_USUARIO@$SSH_HOST:$DIRETORIO_VM/"
+
+      - name: Pull e up na VM (TAG=${{ github.sha }})
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USUARIO: ${{ secrets.SSH_USUARIO }}
+          GHCR_USUARIO: ${{ github.actor }}
+          TOKEN_GHCR: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$TOKEN_GHCR" |
+          ssh -i ~/.ssh/deploy -o BatchMode=yes "$SSH_USUARIO@$SSH_HOST"
+          "GHCR_USUARIO='$GHCR_USUARIO' bash $DIRETORIO_VM/implantar.sh"
