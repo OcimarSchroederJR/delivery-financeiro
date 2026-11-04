@@ -143,3 +143,8 @@ jobs:
           printf '%s' "$TOKEN_GHCR" |
           ssh -i ~/.ssh/deploy -o BatchMode=yes "$SSH_USUARIO@$SSH_HOST"
           "GHCR_USUARIO='$GHCR_USUARIO' bash $DIRETORIO_VM/implantar.sh"
+
+      - name: Smoke test
+        env:
+          DOMINIO: ${{ secrets.DOMINIO }}
+        run: bash infra/smoke-test.sh "$DOMINIO"
