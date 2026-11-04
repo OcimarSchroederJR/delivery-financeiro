@@ -38,6 +38,7 @@ CHAVES_SENSIVEIS = frozenset(
         "numero_cartao",
         "numero",
         "titular",
+        "validade",
     }
 )
 
