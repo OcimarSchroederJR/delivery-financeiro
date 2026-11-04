@@ -10,6 +10,7 @@
 # - swap de 2 GB: 3 Postgres, RabbitMQ, Jaeger e 7 processos Python em 4 GB de RAM;
 # - diretório /opt/financeiro-eq5, onde ficam compose.prod.yaml, Caddyfile e .env.
 #
+# Conferir no fim do boot: sudo cloud-init status --long  (log em /var/log/cloud-init-output.log)
 
 package_update: true
 package_upgrade: true
@@ -88,3 +89,5 @@ runcmd:
   - systemctl enable --now unattended-upgrades
   - systemctl reload ssh
   - install -d -o deploy -g deploy -m 0750 /opt/financeiro-eq5
+
+final_message: "financeiro-eq5: VM pronta em $UPTIME s (cloud-init $VERSION)"
