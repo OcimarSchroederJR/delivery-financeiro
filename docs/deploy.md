@@ -293,3 +293,5 @@ Detalhes:
   `ssh-keyscan -t ed25519 <ip> | gh secret set SSH_KNOWN_HOSTS`.
 - **Imagens privadas.** Os pacotes do GHCR podem continuar privados: a VM faz login só durante o
   `pull`, com o token temporário do job.
+- **Rollback.** Na VM, troque `TAG=` no `.env` pelo SHA anterior e rode
+  `bash /opt/financeiro-eq5/implantar.sh`. Ou rode o workflow à mão a partir do commit desejado.
