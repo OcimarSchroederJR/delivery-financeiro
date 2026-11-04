@@ -148,3 +148,7 @@ jobs:
         env:
           DOMINIO: ${{ secrets.DOMINIO }}
         run: bash infra/smoke-test.sh "$DOMINIO"
+
+      - name: Remover a chave SSH do runner
+        if: always()
+        run: rm -f ~/.ssh/deploy
