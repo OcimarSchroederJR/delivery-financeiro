@@ -25,3 +25,6 @@ echo ">> implantando TAG=${tag:-?}"
 "${compose[@]}" pull --quiet
 "${compose[@]}" up -d --remove-orphans
 "${compose[@]}" ps --format 'table {{.Service}}\t{{.Status}}'
+
+# Mantém as imagens da última semana para permitir rollback trocando TAG no .env.
+docker image prune -af --filter "until=168h" >/dev/null
