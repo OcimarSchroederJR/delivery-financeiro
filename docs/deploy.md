@@ -275,3 +275,12 @@ No seu computador:
 O workflow [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) roda a cada push na
 `main`. Também dá para rodá-lo à mão em *Actions → Deploy → Run workflow*. Um deploy por vez
 (`concurrency: deploy-producao`): um push novo espera o anterior terminar.
+
+| Job / passo | O que faz |
+|---|---|
+| `imagem (<servico>)` | Build e push de `pagamentos`, `notificacoes`, `avaliacoes` e `mocks` para `ghcr.io/ocimarschroederjr/<nome>`, com as tags `<sha>` e `latest` (`packages: write`) |
+| Gerar o `.env` | [`infra/gerar-env.sh`](../infra/gerar-env.sh) escreve `NOME='valor'` para cada variável do `.env.producao.example`, a partir dos Secrets, com `TAG=<sha>` |
+| Validar o compose | `docker compose config` com esse `.env`: se faltar um Secret obrigatório, o job para **antes** de tocar na VM |
+| Copiar | `scp` de `compose.prod.yaml`, `Caddyfile`, `implantar.sh` e `.env` para `/opt/financeiro-eq5` |
+| Pull e up | [`infra/implantar.sh`](../infra/implantar.sh) na VM: login no GHCR com o `GITHUB_TOKEN` do job (recebido pela entrada padrão), `pull`, `up -d --remove-orphans`, `logout` e limpeza das imagens com mais de 7 dias |
+| Smoke test | [`infra/smoke-test.sh`](../infra/smoke-test.sh) chama `https://$DOMINIO/<servico>/saude/pronto` dos 3 serviços, repetindo por até 2 minutos. A tabela vai para o resumo do job, e se algum não responder 200, o job fica vermelho |
