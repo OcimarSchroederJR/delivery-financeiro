@@ -291,3 +291,5 @@ Detalhes:
   apresentar no momento (`ssh-keyscan`). Para fixá-la, cadastre a saída de
   `ssh-keyscan -t ed25519 <ip>`, rodado da sua máquina logo depois de criar a VM:
   `ssh-keyscan -t ed25519 <ip> | gh secret set SSH_KNOWN_HOSTS`.
+- **Imagens privadas.** Os pacotes do GHCR podem continuar privados: a VM faz login só durante o
+  `pull`, com o token temporário do job.
