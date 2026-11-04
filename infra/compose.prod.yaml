@@ -46,6 +46,11 @@ x-ambiente-avaliacoes: &ambiente-avaliacoes
   <<: *ambiente-comum
   ROOT_PATH: /avaliacoes
   DATABASE_URL: postgresql+asyncpg://avaliacoes:${AVALIACOES_DB_SENHA:?defina AVALIACOES_DB_SENHA no .env}@db-avaliacoes:5432/avaliacoes
+  PEDIDOS_URL: ${PEDIDOS_URL:?defina PEDIDOS_URL no .env (API da Equipe 3)}
+  PAGAMENTOS_URL: http://pagamentos:8000
+  SAGA_MAX_TENTATIVAS: ${SAGA_MAX_TENTATIVAS:-10}
+  SAGA_ESPERA_BASE_SEGUNDOS: ${SAGA_ESPERA_BASE_SEGUNDOS:-5}
+  SAGA_ATRASO_INICIAL_SEGUNDOS: ${SAGA_ATRASO_INICIAL_SEGUNDOS:-30}
 
 services:
   rabbitmq:
@@ -209,6 +214,29 @@ services:
       db-avaliacoes:
         condition: service_healthy
     restart: "no"
+
+  avaliacoes:
+    <<: *imagem-avaliacoes
+    environment: *ambiente-avaliacoes
+    depends_on:
+      migrate-avaliacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  avaliacoes-worker:
+    <<: *imagem-avaliacoes
+    command: ["avaliacoes-worker"]
+    environment: *ambiente-avaliacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-avaliacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   dados-rabbitmq:
