@@ -281,8 +281,32 @@ services:
       timeout: 3s
       retries: 10
 
+  # Ãšnico serviÃ§o com portas publicadas: HTTPS automÃ¡tico e roteamento por path (Caddyfile).
+  caddy:
+    image: caddy:2.10.2-alpine
+    environment:
+      DOMINIO: ${DOMINIO:?defina DOMINIO no .env, por exemplo financeiro-eq5.<ip>.sslip.io}
+      BASIC_AUTH_USUARIO: ${BASIC_AUTH_USUARIO:?defina BASIC_AUTH_USUARIO no .env}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?defina BASIC_AUTH_HASH no .env (caddy hash-password)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - dados-caddy:/data
+    depends_on:
+      pagamentos:
+        condition: service_healthy
+      notificacoes:
+        condition: service_healthy
+      avaliacoes:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   dados-rabbitmq:
   dados-pagamentos:
   dados-notificacoes:
   dados-avaliacoes:
+  dados-caddy:
