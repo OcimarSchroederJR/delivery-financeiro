@@ -5,6 +5,7 @@
 #
 # - Docker Engine + plugin compose (repositório oficial da Docker);
 # - usuário "deploy" no grupo docker, só com login por chave;
+# - unattended-upgrades com as atualizações de segurança;
 #
 
 package_update: true
@@ -14,6 +15,7 @@ packages:
   - ca-certificates
   - curl
   - gnupg
+  - unattended-upgrades
 
 users:
   - default
@@ -32,6 +34,12 @@ ssh_pwauth: false
 disable_root: true
 
 write_files:
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    permissions: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
   - path: /etc/ssh/sshd_config.d/10-financeiro-eq5.conf
     permissions: "0644"
     content: |
@@ -54,4 +62,5 @@ runcmd:
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
   - usermod -aG docker deploy
+  - systemctl enable --now unattended-upgrades
   - systemctl reload ssh
