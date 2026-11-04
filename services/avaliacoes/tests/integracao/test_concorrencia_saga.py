@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from avaliacoes.adaptadores.db.modelos import MensagemOutbox
-from avaliacoes.adaptadores.db.unidade_de_trabalho import fabrica_uow_sql
+from avaliacoes.adaptadores.db.unidade_de_trabalho import UnidadeDeTrabalhoSql, fabrica_uow_sql
 from avaliacoes.api import criar_app
 from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
 from avaliacoes.config import Config
@@ -160,3 +160,10 @@ async def test_patch_e_worker_concluem_a_mesma_disputa_uma_unica_vez(
     assert final.estorno_id == "est-1"
     assert final.tentativas_estorno == 1
     assert await _eventos(fabrica, "disputa.resolvida") == 1
+
+
+class _UowQueCaiNoCommit(UnidadeDeTrabalhoSql):
+    """Perde a conexão no commit: o que a transação fez é desfeito."""
+
+    async def commit(self) -> None:
+        raise ConnectionResetError("conexão com o banco caiu no commit")
