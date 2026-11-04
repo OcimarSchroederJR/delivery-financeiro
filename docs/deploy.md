@@ -1,7 +1,8 @@
 # Deploy em produção
 
-> O passo a passo da VM (Azure for Students, cloud-init, primeiro deploy) entra com a #35 e
-> o pipeline de CD com a #36. Este documento começa pelos segredos e pela configuração (#34).
+Passo a passo reproduzível para colocar a Equipe 5 no ar numa VM do **Azure for Students**
+(spec §7.3). A VM roda o [`infra/compose.prod.yaml`](../infra/compose.prod.yaml) atrás do Caddy,
+com HTTPS automático em `financeiro-eq5.<ip>.sslip.io`.
 
 ## Segredos e configuração
 
