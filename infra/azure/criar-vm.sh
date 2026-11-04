@@ -59,3 +59,17 @@ az vm create \
 echo ">> NSG: liberando 80 e 443 (o 22 já veio do --nsg-rule SSH)"
 az vm open-port --resource-group "$GRUPO" --name "$VM" --port 80 --priority 1010 --output none
 az vm open-port --resource-group "$GRUPO" --name "$VM" --port 443 --priority 1020 --output none
+
+ip="$(az vm show --show-details --resource-group "$GRUPO" --name "$VM" --query publicIps --output tsv)"
+cat <<EOF
+
+VM criada. O cloud-init leva alguns minutos para instalar o Docker.
+
+  IP público : $ip
+  DOMINIO    : financeiro-eq5.$ip.sslip.io
+  SSH (admin): ssh $ADMIN@$ip
+  SSH (deploy): ssh -i ${CHAVE_DEPLOY%.pub} deploy@$ip
+
+Conferir o fim do cloud-init:  ssh $ADMIN@$ip sudo cloud-init status --wait --long
+Próximo passo: cadastrar os GitHub Secrets (docs/deploy.md, seção 4).
+EOF
