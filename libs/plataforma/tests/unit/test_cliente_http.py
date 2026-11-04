@@ -8,7 +8,7 @@ import respx
 from structlog.testing import capture_logs
 
 from plataforma.circuit_breaker import CircuitBreaker, CircuitoAberto
-from plataforma.cliente_http import ClienteHttp
+from plataforma.cliente_http import PRAZO_TOTAL_PADRAO, ClienteHttp
 from plataforma.correlation import HEADER_CORRELATION_ID, correlation_id_em
 from plataforma.erros import ErroDependenciaIndisponivel
 
@@ -153,3 +153,8 @@ async def test_prazo_total_esgotado_conta_como_falha_do_circuito() -> None:
         with pytest.raises(ErroDependenciaIndisponivel):
             await cliente.get("/pedidos/1")
     assert breaker.estado == "aberto"
+
+
+async def test_prazo_total_padrao_e_8_segundos() -> None:
+    async with ClienteHttp("pedidos", BASE) as cliente:
+        assert cliente.prazo_total == PRAZO_TOTAL_PADRAO == 8.0
