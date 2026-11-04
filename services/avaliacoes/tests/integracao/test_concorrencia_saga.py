@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 
 import httpx
 import pytest
+from pydantic import SecretStr
+
+from avaliacoes.config import Config
+from plataforma.testes.tokens import (
+    SEGREDO_SERVICO_TESTE,
+)
 
 pytestmark = pytest.mark.integracao
 
@@ -43,3 +49,14 @@ class PagamentosIdempotente:
             return httpx.Response(201, json={"id": estorno_id, "status": "concluido"})
         finally:
             self.em_voo -= 1
+
+
+def _config(banco: str, rabbitmq_url: str) -> Config:
+    return Config(
+        token_servico_segredo=SecretStr(SEGREDO_SERVICO_TESTE),
+        database_url=banco,
+        rabbitmq_url=rabbitmq_url,
+        pagamentos_url=URL_PAGAMENTOS,
+        saga_atraso_inicial_segundos=0,
+        worker_intervalo_segundos=0.01,
+    )
