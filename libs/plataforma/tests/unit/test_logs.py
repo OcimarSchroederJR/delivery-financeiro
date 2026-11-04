@@ -178,3 +178,12 @@ def test_nivel_filtra_mensagens(capsys: pytest.CaptureFixture[str]) -> None:
     obter_logger("teste").warning("visivel")
     eventos = [linha["evento"] for linha in _linhas_json(capsys.readouterr().out)]
     assert eventos == ["visivel"]
+
+
+@pytest.mark.parametrize("chave", ["titular", "validade", "numero", "Numero", "TITULAR"])
+def test_redige_campos_do_cartao_pela_chave(chave: str) -> None:
+    evento = redigir_dados_sensiveis(
+        None, "info", {"event": "x", "dados": {chave: "Fulano 12/30 4111"}, chave: "valor"}
+    )
+    assert evento["dados"] == {chave: REDIGIDO}
+    assert evento[chave] == REDIGIDO
