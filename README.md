@@ -44,9 +44,20 @@ Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: applicatio
 
 ### Produção
 
-A produção usa `infra/compose.prod.yaml` com o Caddy na frente (HTTPS e rotas `/pagamentos`,
-`/notificacoes`, `/avaliacoes`, `/jaeger` e `/mailpit`). Para testá-la na sua máquina com
-`https://localhost/pagamentos/docs`, veja [`infra/README.md`](infra/README.md).
+A produção roda numa VM do Azure for Students, com `infra/compose.prod.yaml` e o Caddy na frente
+(HTTPS automático). Domínio: `financeiro-eq5.<ip>.sslip.io` (o IP sai do `infra/azure/criar-vm.sh`).
+
+| O quê | URL pública |
+|---|---|
+| Swagger de Pagamentos | `https://financeiro-eq5.<ip>.sslip.io/pagamentos/docs` |
+| Swagger de Notificações | `https://financeiro-eq5.<ip>.sslip.io/notificacoes/docs` |
+| Swagger de Avaliações | `https://financeiro-eq5.<ip>.sslip.io/avaliacoes/docs` |
+| Readiness | `https://financeiro-eq5.<ip>.sslip.io/<servico>/saude/pronto` |
+| Jaeger e Mailpit (basic auth) | `https://financeiro-eq5.<ip>.sslip.io/jaeger/` e `/mailpit/` |
+
+- Para criar a VM, cadastrar os segredos e fazer o deploy, veja [`docs/deploy.md`](docs/deploy.md).
+- Para testar a pilha de produção na sua máquina (`https://localhost/pagamentos/docs`), veja
+  [`infra/README.md`](infra/README.md).
 
 ## Desenvolvimento
 
