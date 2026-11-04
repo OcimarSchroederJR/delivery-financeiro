@@ -122,8 +122,8 @@ Em *Settings → Secrets and variables → Actions → New repository secret*, o
 | `SSH_KNOWN_HOSTS` (opcional) | Fixa a chave do host da VM (seção 8) | `ssh-keyscan -t ed25519 <ip>` |
 | `EMAIL_ADMIN`, `LOG_NIVEL`, `OTEL_HABILITADO`, `IDENTIDADE_CREDENCIAL` (opcionais) | Vazios usam o padrão | Livre |
 
-- As URLs das outras equipes não são segredo. Podem ir como *Variables* em vez de *Secrets*,
-  desde que o pipeline as leia de `vars.` em vez de `secrets.`.
+- O pipeline lê tudo de `secrets.`, inclusive as URLs das outras equipes, que não são
+  segredo: assim, um lugar só concentra a configuração.
 - `IDENTIDADE_CREDENCIAL` só entra quando a Equipe 1 fornecer uma credencial de serviço.
 - Quem gera um segredo cadastra-o direto no GitHub. O valor não passa por chat, issue ou commit.
 
