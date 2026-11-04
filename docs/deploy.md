@@ -13,7 +13,7 @@ com HTTPS automático em `financeiro-eq5.<ip>.sslip.io`.
 | 5. Primeiro deploy manual | quem cria a VM | uma vez |
 | 6. Verificar | qualquer pessoa | a cada deploy |
 
-Depois do primeiro deploy, cada merge na `main` atualiza a VM pelo pipeline de CD (#36).
+Depois do primeiro deploy, cada merge na `main` atualiza a VM pelo pipeline de CD (seção 8).
 
 ## 1. Ativar o Azure for Students
 
