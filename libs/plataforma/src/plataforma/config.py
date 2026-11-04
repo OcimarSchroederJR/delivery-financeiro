@@ -1,6 +1,6 @@
 """Configuração base dos serviços, lida de variáveis de ambiente."""
 
-from typing import Literal, Self
+from typing import ClassVar, Literal, Self
 
 import httpx
 from pydantic import Field, SecretStr, model_validator
@@ -16,6 +16,14 @@ class ConfiguracaoBase(BaseSettings):
     Os nomes das variáveis de ambiente são os nomes dos campos em maiúsculas
     (ex.: ``database_url`` lê ``DATABASE_URL``).
     """
+
+    # Campos que, em produção, precisam vir do ambiente (ou do construtor), sem cair no
+    # padrão de desenvolvimento. Cada serviço estende com as URLs das outras equipes.
+    CAMPOS_EXPLICITOS_EM_PRODUCAO: ClassVar[tuple[str, ...]] = (
+        "database_url",
+        "rabbitmq_url",
+        "jwks_url",
+    )
 
     # hide_input_in_errors: o erro de boot vai para o log e não pode carregar segredos.
     model_config = SettingsConfigDict(extra="ignore", frozen=True, hide_input_in_errors=True)
@@ -51,6 +59,13 @@ class ConfiguracaoBase(BaseSettings):
                 "TOKEN_SERVICO_SEGREDO usa o valor padrão de desenvolvimento; "
                 "defina um segredo próprio em produção."
             )
+        ausentes = [
+            campo.upper()
+            for campo in self.CAMPOS_EXPLICITOS_EM_PRODUCAO
+            if campo not in self.model_fields_set
+        ]
+        if ausentes:
+            raise ValueError(f"Em produção, defina explicitamente: {', '.join(ausentes)}.")
         return self
 
     def timeout_http(self) -> httpx.Timeout:
