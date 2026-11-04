@@ -23,6 +23,7 @@ x-ambiente-pagamentos: &ambiente-pagamentos
   <<: *ambiente-comum
   ROOT_PATH: /pagamentos
   DATABASE_URL: postgresql+asyncpg://pagamentos:${PAGAMENTOS_DB_SENHA:?defina PAGAMENTOS_DB_SENHA no .env}@db-pagamentos:5432/pagamentos
+  PEDIDOS_URL: ${PEDIDOS_URL:?defina PEDIDOS_URL no .env (API da Equipe 3)}
 
 services:
   rabbitmq:
@@ -84,6 +85,29 @@ services:
       db-pagamentos:
         condition: service_healthy
     restart: "no"
+
+  pagamentos:
+    <<: *imagem-pagamentos
+    environment: *ambiente-pagamentos
+    depends_on:
+      migrate-pagamentos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pagamentos-worker:
+    <<: *imagem-pagamentos
+    command: ["pagamentos-worker"]
+    environment: *ambiente-pagamentos
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-pagamentos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   dados-rabbitmq:
