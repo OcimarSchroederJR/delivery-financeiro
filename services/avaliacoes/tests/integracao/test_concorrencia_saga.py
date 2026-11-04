@@ -17,6 +17,7 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from avaliacoes.aplicacao.portas import FabricaUnidadeDeTrabalho
 from avaliacoes.config import Config
 from avaliacoes.dominio.disputa import Disputa, MotivoDisputa
 from plataforma.db import criar_engine, criar_fabrica_sessoes
@@ -86,3 +87,9 @@ async def fabrica(banco_migrado: str) -> AsyncIterator[async_sessionmaker[AsyncS
     engine = criar_engine(banco_migrado)
     yield criar_fabrica_sessoes(engine)
     await engine.dispose()
+
+
+async def _gravar(uow: FabricaUnidadeDeTrabalho, disputa: Disputa) -> None:
+    async with uow() as u:
+        await u.disputas.adicionar(disputa)
+        await u.commit()
