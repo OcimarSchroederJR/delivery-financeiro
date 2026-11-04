@@ -295,3 +295,5 @@ Detalhes:
   `pull`, com o token temporário do job.
 - **Rollback.** Na VM, troque `TAG=` no `.env` pelo SHA anterior e rode
   `bash /opt/financeiro-eq5/implantar.sh`. Ou rode o workflow à mão a partir do commit desejado.
+- **Smoke test local.** Com a pilha de produção na sua máquina (`infra/README.md`):
+  `infra/smoke-test.sh localhost --insecure`.
