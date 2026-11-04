@@ -1,0 +1,312 @@
+# Produção da Equipe 5 (spec §7.3). Na VM, este arquivo fica ao lado do Caddyfile e do .env:
+#   TAG=<sha> docker compose -f compose.prod.yaml pull
+#   TAG=<sha> docker compose -f compose.prod.yaml up -d
+# Só o Caddy publica portas; APIs, bancos e RabbitMQ ficam na rede interna.
+# Variáveis com ${VAR:?} são obrigatórias: o compose não sobe sem elas.
+name: financeiro-eq5
+
+# Ambiente comum às APIs, workers e migrações dos 3 serviços.
+x-ambiente-comum: &ambiente-comum
+  AMBIENTE: producao
+  LOG_FORMATO: json
+  LOG_NIVEL: ${LOG_NIVEL:-INFO}
+  RABBITMQ_URL: amqp://${RABBITMQ_USUARIO:?defina RABBITMQ_USUARIO no .env}:${RABBITMQ_SENHA:?defina RABBITMQ_SENHA no .env}@rabbitmq:5672/
+  JWKS_URL: ${JWKS_URL:?defina JWKS_URL no .env (JWKS da Equipe 1)}
+  TOKEN_SERVICO_SEGREDO: ${TOKEN_SERVICO_SEGREDO:?defina TOKEN_SERVICO_SEGREDO no .env}
+  OTEL_HABILITADO: ${OTEL_HABILITADO:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+x-imagem-pagamentos: &imagem-pagamentos
+  image: ghcr.io/ocimarschroederjr/pagamentos:${TAG:?defina TAG (tag das imagens no GHCR)}
+
+x-ambiente-pagamentos: &ambiente-pagamentos
+  <<: *ambiente-comum
+  ROOT_PATH: /pagamentos
+  DATABASE_URL: postgresql+asyncpg://pagamentos:${PAGAMENTOS_DB_SENHA:?defina PAGAMENTOS_DB_SENHA no .env}@db-pagamentos:5432/pagamentos
+  PEDIDOS_URL: ${PEDIDOS_URL:?defina PEDIDOS_URL no .env (API da Equipe 3)}
+
+x-imagem-notificacoes: &imagem-notificacoes
+  image: ghcr.io/ocimarschroederjr/notificacoes:${TAG:?defina TAG (tag das imagens no GHCR)}
+
+x-ambiente-notificacoes: &ambiente-notificacoes
+  <<: *ambiente-comum
+  ROOT_PATH: /notificacoes
+  DATABASE_URL: postgresql+asyncpg://notificacoes:${NOTIFICACOES_DB_SENHA:?defina NOTIFICACOES_DB_SENHA no .env}@db-notificacoes:5432/notificacoes
+  IDENTIDADE_URL: ${IDENTIDADE_URL:?defina IDENTIDADE_URL no .env (API da Equipe 1)}
+  WEBHOOK_SEGREDO_CIFRAGEM: ${WEBHOOK_SEGREDO_CIFRAGEM:?defina WEBHOOK_SEGREDO_CIFRAGEM no .env}
+  SMTP_HOST: mailpit
+  SMTP_PORTA: "1025"
+  SMTP_REMETENTE: notificacoes@financeiro-eq5.local
+  EMAIL_ADMIN: ${EMAIL_ADMIN:-admin@financeiro-eq5.local}
+
+x-imagem-avaliacoes: &imagem-avaliacoes
+  image: ghcr.io/ocimarschroederjr/avaliacoes:${TAG:?defina TAG (tag das imagens no GHCR)}
+
+x-ambiente-avaliacoes: &ambiente-avaliacoes
+  <<: *ambiente-comum
+  ROOT_PATH: /avaliacoes
+  DATABASE_URL: postgresql+asyncpg://avaliacoes:${AVALIACOES_DB_SENHA:?defina AVALIACOES_DB_SENHA no .env}@db-avaliacoes:5432/avaliacoes
+  PEDIDOS_URL: ${PEDIDOS_URL:?defina PEDIDOS_URL no .env (API da Equipe 3)}
+  PAGAMENTOS_URL: http://pagamentos:8000
+  SAGA_MAX_TENTATIVAS: ${SAGA_MAX_TENTATIVAS:-10}
+  SAGA_ESPERA_BASE_SEGUNDOS: ${SAGA_ESPERA_BASE_SEGUNDOS:-5}
+  SAGA_ATRASO_INICIAL_SEGUNDOS: ${SAGA_ATRASO_INICIAL_SEGUNDOS:-30}
+
+# Mocks das Equipes 1, 3 e 4: sÃ³ sobem com --profile mocks, enquanto as equipes nÃ£o estÃ£o no ar.
+x-imagem-mocks: &imagem-mocks
+  image: ghcr.io/ocimarschroederjr/mocks:${TAG:?defina TAG (tag das imagens no GHCR)}
+  profiles: ["mocks"]
+  environment:
+    LOG_FORMATO: json
+  restart: unless-stopped
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USUARIO:?defina RABBITMQ_USUARIO no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_SENHA:?defina RABBITMQ_SENHA no .env}
+    volumes:
+      - dados-rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # Caixa de e-mail da demo. A interface fica em /mailpit (atrás de basic auth no Caddy).
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    environment:
+      MP_WEBROOT: mailpit
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+  # Traces. A interface fica em /jaeger (atrás de basic auth no Caddy); os serviços
+  # enviam OTLP para jaeger:4318 pela rede interna.
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    command: ["--set=extensions.jaeger_query.base_path=/jaeger"]
+    restart: unless-stopped
+
+  db-pagamentos:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pagamentos
+      POSTGRES_PASSWORD: ${PAGAMENTOS_DB_SENHA:?defina PAGAMENTOS_DB_SENHA no .env}
+      POSTGRES_DB: pagamentos
+    volumes:
+      - dados-pagamentos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pagamentos -d pagamentos"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-pagamentos:
+    <<: *imagem-pagamentos
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-pagamentos
+    healthcheck:
+      disable: true
+    depends_on:
+      db-pagamentos:
+        condition: service_healthy
+    restart: "no"
+
+  pagamentos:
+    <<: *imagem-pagamentos
+    environment: *ambiente-pagamentos
+    depends_on:
+      migrate-pagamentos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pagamentos-worker:
+    <<: *imagem-pagamentos
+    command: ["pagamentos-worker"]
+    environment: *ambiente-pagamentos
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-pagamentos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db-notificacoes:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: notificacoes
+      POSTGRES_PASSWORD: ${NOTIFICACOES_DB_SENHA:?defina NOTIFICACOES_DB_SENHA no .env}
+      POSTGRES_DB: notificacoes
+    volumes:
+      - dados-notificacoes:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notificacoes -d notificacoes"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-notificacoes:
+    <<: *imagem-notificacoes
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-notificacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      db-notificacoes:
+        condition: service_healthy
+    restart: "no"
+
+  notificacoes:
+    <<: *imagem-notificacoes
+    environment: *ambiente-notificacoes
+    depends_on:
+      migrate-notificacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notificacoes-worker:
+    <<: *imagem-notificacoes
+    command: ["notificacoes-worker"]
+    environment: *ambiente-notificacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-notificacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db-avaliacoes:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: avaliacoes
+      POSTGRES_PASSWORD: ${AVALIACOES_DB_SENHA:?defina AVALIACOES_DB_SENHA no .env}
+      POSTGRES_DB: avaliacoes
+    volumes:
+      - dados-avaliacoes:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avaliacoes -d avaliacoes"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate-avaliacoes:
+    <<: *imagem-avaliacoes
+    command: ["alembic", "upgrade", "head"]
+    environment: *ambiente-avaliacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      db-avaliacoes:
+        condition: service_healthy
+    restart: "no"
+
+  avaliacoes:
+    <<: *imagem-avaliacoes
+    environment: *ambiente-avaliacoes
+    depends_on:
+      migrate-avaliacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  avaliacoes-worker:
+    <<: *imagem-avaliacoes
+    command: ["avaliacoes-worker"]
+    environment: *ambiente-avaliacoes
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate-avaliacoes:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mock-identidade:
+    <<: *imagem-mocks
+    command: ["uvicorn", "mocks_equipes.identidade:app", "--host", "0.0.0.0", "--port", "8001"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/saude/vivo', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-pedidos:
+    <<: *imagem-mocks
+    command: ["uvicorn", "mocks_equipes.pedidos:app", "--host", "0.0.0.0", "--port", "8008"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/saude/vivo', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-logistica:
+    <<: *imagem-mocks
+    command: ["uvicorn", "mocks_equipes.logistica:app", "--host", "0.0.0.0", "--port", "8010"]
+    environment:
+      LOG_FORMATO: json
+      NOTIFICACOES_URL: http://notificacoes:8000
+      IDENTIDADE_URL: http://mock-identidade:8001
+      MOCK_LOGISTICA_PAPEL: ${MOCK_LOGISTICA_PAPEL:-entregador}
+    depends_on:
+      mock-identidade:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/saude/vivo', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Ãšnico serviÃ§o com portas publicadas: HTTPS automÃ¡tico e roteamento por path (Caddyfile).
+  caddy:
+    image: caddy:2.10.2-alpine
+    environment:
+      DOMINIO: ${DOMINIO:?defina DOMINIO no .env, por exemplo financeiro-eq5.<ip>.sslip.io}
+      BASIC_AUTH_USUARIO: ${BASIC_AUTH_USUARIO:?defina BASIC_AUTH_USUARIO no .env}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?defina BASIC_AUTH_HASH no .env (caddy hash-password)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - dados-caddy:/data
+    depends_on:
+      pagamentos:
+        condition: service_healthy
+      notificacoes:
+        condition: service_healthy
+      avaliacoes:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dados-rabbitmq:
+  dados-pagamentos:
+  dados-notificacoes:
+  dados-avaliacoes:
+  dados-caddy:
