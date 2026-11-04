@@ -226,3 +226,24 @@ docker compose -f compose.prod.yaml ps
 
 Na primeira requisição HTTPS, o Caddy obtém o certificado da Let's Encrypt para o domínio
 sslip.io. Isso exige as portas 80 e 443 abertas, que o NSG já libera.
+
+## 6. Verificar
+
+```bash
+D=financeiro-eq5.<ip>.sslip.io
+for s in pagamentos notificacoes avaliacoes; do
+  curl -fsS -o /dev/null -w "$s %{http_code}\n" https://$D/$s/saude/pronto   # 200
+done
+curl -s -o /dev/null -w "%{http_code}\n" https://$D/jaeger/                  # 401
+curl -s -o /dev/null -w "%{http_code}\n" -u admin:<senha> https://$D/jaeger/ # 200
+```
+
+Swagger público:
+
+- `https://financeiro-eq5.<ip>.sslip.io/pagamentos/docs`
+- `https://financeiro-eq5.<ip>.sslip.io/notificacoes/docs`
+- `https://financeiro-eq5.<ip>.sslip.io/avaliacoes/docs`
+
+Se algo não responder, comece por `docker compose -f compose.prod.yaml ps` e
+`docker compose -f compose.prod.yaml logs <servico>`. A tabela "O que o boot recusa em produção"
+(seção 4) explica os erros de configuração mais comuns.
