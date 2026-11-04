@@ -32,6 +32,7 @@ for arquivo in "$CHAVE_DEPLOY" "$CHAVE_ADMIN" "$modelo"; do
 done
 chave_deploy="$(tr -d '\r\n' < "$CHAVE_DEPLOY")"
 [[ "$chave_deploy" == ssh-* ]] || { echo "CHAVE_DEPLOY não parece uma chave pública SSH" >&2; exit 1; }
+[[ "$chave_deploy" != *[\|\&]* ]] || { echo "CHAVE_DEPLOY não pode conter '|' ou '&'" >&2; exit 1; }
 
 # cloud-init com a chave do pipeline no lugar do marcador (o modelo versionado fica intacto).
 custom_data="$(mktemp)"
