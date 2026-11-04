@@ -42,6 +42,12 @@ docker compose --profile mocks down -v            # derruba tudo
 
 Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: application/json' -d '{"sub":"cliente-1","papel":"cliente"}'`.
 
+### Produção
+
+A produção usa `infra/compose.prod.yaml` com o Caddy na frente (HTTPS e rotas `/pagamentos`,
+`/notificacoes`, `/avaliacoes`, `/jaeger` e `/mailpit`). Para testá-la na sua máquina com
+`https://localhost/pagamentos/docs`, veja [`infra/README.md`](infra/README.md).
+
 ## Desenvolvimento
 
 Pré-requisitos: [uv](https://docs.astral.sh/uv/) 0.11 e Docker (para os testes de integração).
@@ -62,6 +68,7 @@ uv run python -m pagamentos.contratos         # regenera docs/openapi e docs/asy
 libs/plataforma/   código técnico compartilhado (erros, logs, auth, outbox, inbox, HTTP...)
 services/<s>/      um serviço: src/<s>/{dominio,aplicacao,adaptadores}, alembic/, tests/
 mocks/             stubs das Equipes 1, 3 e 4 (profile "mocks")
+infra/             produção: compose.prod.yaml, Caddyfile (HTTPS) e teste local
 docs/              especificação, levantamento de requisitos e contratos
 ```
 
