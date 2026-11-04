@@ -197,3 +197,17 @@ docker push ghcr.io/ocimarschroederjr/mocks:$TAG
 Os pacotes do GHCR nascem privados. A VM entra no GHCR com um token na hora do `pull`
 (passo 5.3). Se preferir, deixe cada pacote público em *Package settings → Change visibility*,
 já que o repositório é público.
+
+### 5.2 Levar os arquivos e o `.env` para a VM
+
+```bash
+IP=<ip>
+CHAVE=~/.ssh/deploy-financeiro-eq5
+cp infra/.env.producao.example /tmp/env-producao   # preencha com os mesmos valores dos Secrets
+scp -i $CHAVE infra/compose.prod.yaml infra/Caddyfile deploy@$IP:/opt/financeiro-eq5/
+scp -i $CHAVE /tmp/env-producao deploy@$IP:/opt/financeiro-eq5/.env
+ssh -i $CHAVE deploy@$IP chmod 600 /opt/financeiro-eq5/.env
+rm /tmp/env-producao
+```
+
+No `.env`, use `TAG=<o mesmo SHA do passo 5.1>` e, com os mocks, `COMPOSE_PROFILES=mocks`.
