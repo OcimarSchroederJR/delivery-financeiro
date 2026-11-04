@@ -9,12 +9,15 @@
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import timedelta
 
 import httpx
 import pytest
 from pydantic import SecretStr
 
 from avaliacoes.config import Config
+from avaliacoes.dominio.disputa import Disputa, MotivoDisputa
+from plataforma.tempo import agora_utc
 from plataforma.testes.tokens import (
     SEGREDO_SERVICO_TESTE,
 )
@@ -59,4 +62,17 @@ def _config(banco: str, rabbitmq_url: str) -> Config:
         pagamentos_url=URL_PAGAMENTOS,
         saga_atraso_inicial_segundos=0,
         worker_intervalo_segundos=0.01,
+    )
+
+
+def _disputa_aberta() -> Disputa:
+    return Disputa.abrir(
+        pedido_id="ped-4",
+        pagamento_id="pag-1",
+        cliente_id="cliente-1",
+        motivo=MotivoDisputa.ITEM_FALTANDO,
+        descricao=None,
+        valor_solicitado_centavos=1000,
+        valor_pago_centavos=3200,
+        agora=agora_utc() - timedelta(minutes=1),
     )
