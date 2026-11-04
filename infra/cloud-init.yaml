@@ -48,6 +48,13 @@ write_files:
       PasswordAuthentication no
       KbdInteractiveAuthentication no
       PermitRootLogin no
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "5" }
+      }
 
 runcmd:
   # Docker Engine e plugin compose pelo repositório oficial (docs.docker.com/engine/install/ubuntu).
