@@ -42,6 +42,23 @@ docker compose --profile mocks down -v            # derruba tudo
 
 Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: application/json' -d '{"sub":"cliente-1","papel":"cliente"}'`.
 
+### Produção
+
+A produção roda numa VM do Azure for Students, com `infra/compose.prod.yaml` e o Caddy na frente
+(HTTPS automático). Domínio: `financeiro-eq5.<ip>.sslip.io` (o IP sai do `infra/azure/criar-vm.sh`).
+
+| O quê | URL pública |
+|---|---|
+| Swagger de Pagamentos | `https://financeiro-eq5.<ip>.sslip.io/pagamentos/docs` |
+| Swagger de Notificações | `https://financeiro-eq5.<ip>.sslip.io/notificacoes/docs` |
+| Swagger de Avaliações | `https://financeiro-eq5.<ip>.sslip.io/avaliacoes/docs` |
+| Readiness | `https://financeiro-eq5.<ip>.sslip.io/<servico>/saude/pronto` |
+| Jaeger e Mailpit (basic auth) | `https://financeiro-eq5.<ip>.sslip.io/jaeger/` e `/mailpit/` |
+
+- Para criar a VM, cadastrar os segredos e fazer o deploy, veja [`docs/deploy.md`](docs/deploy.md).
+- Para testar a pilha de produção na sua máquina (`https://localhost/pagamentos/docs`), veja
+  [`infra/README.md`](infra/README.md).
+
 ## Desenvolvimento
 
 Pré-requisitos: [uv](https://docs.astral.sh/uv/) 0.11 e Docker (para os testes de integração).
@@ -62,6 +79,7 @@ uv run python -m pagamentos.contratos         # regenera docs/openapi e docs/asy
 libs/plataforma/   código técnico compartilhado (erros, logs, auth, outbox, inbox, HTTP...)
 services/<s>/      um serviço: src/<s>/{dominio,aplicacao,adaptadores}, alembic/, tests/
 mocks/             stubs das Equipes 1, 3 e 4 (profile "mocks")
+infra/             produção: compose.prod.yaml, Caddyfile (HTTPS), cloud-init e criação da VM
 docs/              especificação, levantamento de requisitos e contratos
 ```
 

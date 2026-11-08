@@ -1,0 +1,57 @@
+# Proxy reverso da produção (spec §7.3). HTTPS automático para {$DOMINIO}
+# (ex.: financeiro-eq5.<ip>.sslip.io; com DOMINIO=localhost o Caddy usa a CA interna).
+# Cada API recebe o caminho sem o prefixo; o FastAPI usa ROOT_PATH=/<servico>
+# para gerar os links do Swagger em /<servico>/docs.
+
+{$DOMINIO} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	encode zstd gzip
+
+	# Log de acesso em JSON no stdout, no mesmo formato dos serviços (docker compose logs caddy).
+	log {
+		output stdout
+		format json
+	}
+
+	# /pagamentos e /pagamentos/ (idem para os outros) levam ao Swagger do serviço.
+	@raiz_servico path_regexp servico ^/(pagamentos|notificacoes|avaliacoes)/?$
+	redir @raiz_servico /{re.servico.1}/docs
+
+	handle_path /pagamentos/* {
+		reverse_proxy pagamentos:8000
+	}
+
+	handle_path /notificacoes/* {
+		reverse_proxy notificacoes:8000
+	}
+
+	handle_path /avaliacoes/* {
+		reverse_proxy avaliacoes:8000
+	}
+
+	# Painéis de operação: mantêm o prefixo (as interfaces geram links absolutos
+	# com base path /jaeger e webroot /mailpit) e exigem basic auth.
+	handle /jaeger* {
+		basic_auth {
+			{$BASIC_AUTH_USUARIO} {$BASIC_AUTH_HASH}
+		}
+		reverse_proxy jaeger:16686
+	}
+
+	handle /mailpit* {
+		basic_auth {
+			{$BASIC_AUTH_USUARIO} {$BASIC_AUTH_HASH}
+		}
+		reverse_proxy mailpit:8025
+	}
+
+	handle {
+		respond "Não encontrado" 404
+	}
+}

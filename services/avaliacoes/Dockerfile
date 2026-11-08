@@ -12,6 +12,12 @@ WORKDIR /src
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable --package avaliacoes
+# Código de apoio a testes (fakes, tokens e segredo de teste) não vai para produção.
+# Os testes test_isolamento_testes garantem que nada fora de testes/ o importa.
+RUN SITE=/app/.venv/lib/python3.12/site-packages \
+    && rm -rf "$SITE/plataforma/testes" "$SITE/avaliacoes/testes" \
+    && ! /app/.venv/bin/python -c "import plataforma.testes" 2>/dev/null \
+    && ! /app/.venv/bin/python -c "import avaliacoes.testes" 2>/dev/null
 
 FROM python:3.12-slim AS runtime
 RUN groupadd --system --gid 10001 app \

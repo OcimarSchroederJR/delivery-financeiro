@@ -1,6 +1,7 @@
 """Cliente HTTP base para outras equipes (spec §5 e §6).
 
-- timeout em toda chamada;
+- timeout em toda tentativa e um prazo total (padrão 8 s) por chamada lógica, que
+  corta os retries;
 - retry (tenacity, backoff exponencial com jitter) só em GET/HEAD/OPTIONS e em
   requisições com ``Idempotency-Key``; nunca em 4xx;
 - circuit breaker por dependência envolvendo a chamada lógica (com retries);
@@ -8,10 +9,12 @@
 - correlation id propagado e ``traceparent`` via instrumentação do httpx.
 
 Respostas < 500 são devolvidas ao chamador (o adapter decide o que 404/409 significam).
-Timeout, erro de rede, 5xx após retries ou circuito aberto viram
-``ErroDependenciaIndisponivel`` (503).
+Timeout, erro de rede, outro erro do httpx (ex.: corpo corrompido), 5xx após retries
+ou prazo total esgotado viram ``ErroDependenciaIndisponivel`` (503); circuito aberto
+levanta ``CircuitoAberto``.
 """
 
+import asyncio
 import time
 from collections.abc import Mapping
 from types import TracebackType
@@ -34,6 +37,7 @@ _log = obter_logger(__name__)
 
 METODOS_SEGUROS = frozenset({"GET", "HEAD", "OPTIONS"})
 TIMEOUT_PADRAO = httpx.Timeout(3.0, connect=1.0)
+PRAZO_TOTAL_PADRAO = 8.0
 
 
 class _RespostaDeErroDoServidor(Exception):
@@ -43,7 +47,7 @@ class _RespostaDeErroDoServidor(Exception):
 
 
 def _e_falha_da_dependencia(erro: Exception) -> bool:
-    return isinstance(erro, httpx.TransportError | _RespostaDeErroDoServidor)
+    return isinstance(erro, httpx.HTTPError | _RespostaDeErroDoServidor | TimeoutError)
 
 
 class ClienteHttp:
@@ -53,6 +57,7 @@ class ClienteHttp:
         url_base: str,
         *,
         timeout: httpx.Timeout = TIMEOUT_PADRAO,
+        prazo_total: float | None = PRAZO_TOTAL_PADRAO,
         breaker: CircuitBreaker | None = None,
         max_tentativas: int = 3,
         espera_base: float = 0.2,
@@ -61,6 +66,7 @@ class ClienteHttp:
     ) -> None:
         self.dependencia = dependencia
         self.breaker = breaker or CircuitBreaker(dependencia)
+        self.prazo_total = prazo_total
         self._max_tentativas = max_tentativas
         self._espera_base = espera_base
         self._espera_maxima = espera_maxima
@@ -91,6 +97,10 @@ class ClienteHttp:
         repetivel = metodo in METODOS_SEGUROS or idempotency_key is not None
         tentativas = self._max_tentativas if repetivel else 1
 
+        async def chamar_com_prazo() -> httpx.Response:
+            async with asyncio.timeout(self.prazo_total):
+                return await chamar_com_retry()
+
         async def chamar_com_retry() -> httpx.Response:
             async for tentativa in AsyncRetrying(
                 stop=stop_after_attempt(tentativas),
@@ -113,7 +123,7 @@ class ClienteHttp:
             raise RuntimeError("tenacity encerrou sem resultado")  # pragma: no cover
 
         try:
-            return await self.breaker.executar(chamar_com_retry, e_falha=_e_falha_da_dependencia)
+            return await self.breaker.executar(chamar_com_prazo, e_falha=_e_falha_da_dependencia)
         except CircuitoAberto:
             _log.warning(
                 "http_saida_bloqueada",
@@ -122,7 +132,16 @@ class ClienteHttp:
                 rota=rota,
             )
             raise
-        except (httpx.TransportError, _RespostaDeErroDoServidor) as erro:
+        except TimeoutError as erro:
+            _log.warning(
+                "http_saida_prazo_esgotado",
+                dependencia=self.dependencia,
+                metodo=metodo,
+                rota=rota,
+                prazo_total=self.prazo_total,
+            )
+            raise ErroDependenciaIndisponivel(self.dependencia) from erro
+        except (httpx.HTTPError, _RespostaDeErroDoServidor) as erro:
             raise ErroDependenciaIndisponivel(self.dependencia) from erro
 
     async def _enviar(
@@ -147,7 +166,7 @@ class ClienteHttp:
             resposta = await self._cliente.request(
                 metodo, rota, json=json, params=params, headers=headers
             )
-        except httpx.TransportError as erro:
+        except httpx.HTTPError as erro:
             _log.warning(
                 "http_saida_falhou",
                 dependencia=self.dependencia,

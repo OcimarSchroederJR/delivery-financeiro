@@ -334,9 +334,9 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 
 | Mecanismo | Especificação |
 |---|---|
-| Timeout | 1 s para conectar e 3 s para ler em todo cliente httpx, configurável (`HTTP_TIMEOUT_*`) |
+| Timeout | 1 s para conectar e 3 s para ler em todo cliente httpx, configurável (`HTTP_TIMEOUT_*`). Prazo total de 8 s por chamada lógica, somando retries e backoff (`HTTP_PRAZO_TOTAL`): ao esgotar, a tentativa em curso é cancelada e a resposta é `503` |
 | Retry | tenacity com até 3 tentativas, backoff exponencial e jitter, apenas em GET e em POST com `Idempotency-Key`; nunca em 4xx |
-| Circuit breaker | um por dependência; abre após 5 falhas consecutivas; meio-aberto após 30 s; aberto → `503 DEPENDENCIA_INDISPONIVEL` imediato |
+| Circuit breaker | um por dependência; abre após 5 falhas consecutivas; meio-aberto após 30 s; aberto → `503 DEPENDENCIA_INDISPONIVEL` imediato. Contam como falha: erro de rede ou timeout, qualquer outro erro do httpx (ex.: corpo corrompido), `5xx` e prazo total esgotado |
 | JWKS | cache com TTL; se a Eq. 1 estiver fora, continua validando com a última chave conhecida |
 | Broker fora | as APIs continuam operando; o outbox acumula; o relay publica ao reconectar |
 | Exceções | handler global converte tudo para o formato de erro; `500` nunca expõe stack trace |
@@ -351,7 +351,7 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 - **Logs de integração obrigatórios:**
   - toda chamada HTTP de saída gera uma linha antes e uma depois, com dependência, método, rota, status e duração;
   - todo evento publicado ou consumido gera uma linha com `tipo` e `mensagem_id`, e informa se a inbox o considerou novo ou duplicado.
-- **Dados sensíveis:** número de cartão, CVV, token JWT e segredo de webhook nunca aparecem em log. Isso é garantido por um processor de redação no structlog e coberto por teste.
+- **Dados sensíveis:** número de cartão, CVV, titular, validade, token JWT e segredo de webhook nunca aparecem em log. Isso é garantido por um processor de redação no structlog e coberto por teste.
 - **Correlation ID:** gerado por middleware se a requisição não trouxer um, propagado pelo httpx e gravado no envelope dos eventos.
 - **OpenTelemetry:** instrumentação de FastAPI, httpx, SQLAlchemy e do cliente AMQP, exportando via OTLP para o Jaeger. O header `traceparent` é propagado também para as outras equipes.
 
@@ -367,7 +367,8 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
   - usuário não-root;
   - `HEALTHCHECK` em `/saude/vivo`;
   - `CMD` em forma exec;
-  - `.dockerignore`.
+  - `.dockerignore`;
+  - sem código de apoio a testes: o estágio de build apaga `plataforma/testes` e `<servico>/testes` (fakes, gerador de tokens e `SEGREDO_SERVICO_TESTE`). Eles ficam em `src` porque o mypy confere os fakes contra as portas, e uma extra de dependência não tiraria o subpacote do wheel. O teste `test_isolamento_testes` de cada pacote falha se algum código fora de `testes/` importar esses módulos. A imagem dos mocks mantém `plataforma.testes`, porque o mock da Eq. 1 emite tokens com ele. Ela só substitui equipes que ainda não estão no ar (`--profile mocks`).
 - Cada imagem tem dois comandos: `api` (uvicorn) e `worker`.
 - O relay do outbox busca as mensagens com `SELECT … FOR UPDATE SKIP LOCKED` e é seguro com várias réplicas.
 - O serviço `migrate-<servico>` roda `alembic upgrade head` uma vez. A `api` e o `worker` dependem dele com `condition: service_completed_successfully`.
@@ -393,6 +394,11 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 - **Caddy:** HTTPS automático em `financeiro-eq5.<ip>.sslip.io`.
   - `/pagamentos/*`, `/notificacoes/*` e `/avaliacoes/*` → APIs. O FastAPI usa `root_path`, então cada Swagger fica em `/<servico>/docs`.
   - `/jaeger/*` e `/mailpit/*` exigem basic auth.
+    - Não removem o prefixo: o Jaeger roda com `base_path=/jaeger` e o Mailpit com `MP_WEBROOT=mailpit`.
+  - `/<servico>` redireciona para `/<servico>/docs`. As respostas levam HSTS, `nosniff` e `no-referrer`, e o log de acesso sai em JSON.
+- **Credenciais:** as senhas dos bancos e do RabbitMQ, o segredo de serviço, a chave de cifragem dos webhooks e as URLs das outras equipes são obrigatórias no `.env` (`${VAR:?}`). Nenhum valor padrão de desenvolvimento chega à produção.
+- **Mocks:** ficam fora por padrão e sobem com `--profile mocks` enquanto as outras equipes não estiverem no ar.
+- **Teste local:** `infra/compose.prod.local.yaml` constrói as imagens a partir do código. Com `DOMINIO=localhost`, a pilha de produção responde em `https://localhost` (veja `infra/README.md`).
 - Os segredos de produção ficam em GitHub Secrets e são gravados no `.env` da VM durante o deploy.
 
 ---

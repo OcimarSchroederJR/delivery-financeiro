@@ -40,7 +40,12 @@ async def executar(config: Config, parar: asyncio.Event) -> None:
         config.identidade_credencial.get_secret_value() if config.identidade_credencial else None
     )
     perfis = ClientePerfisHttp(
-        ClienteHttp("identidade", config.identidade_url, timeout=config.timeout_http()),
+        ClienteHttp(
+            "identidade",
+            config.identidade_url,
+            timeout=config.timeout_http(),
+            prazo_total=config.http_prazo_total,
+        ),
         credencial=credencial,
         ttl_segundos=config.perfis_cache_ttl_segundos,
     )
