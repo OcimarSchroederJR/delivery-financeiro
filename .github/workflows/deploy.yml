@@ -1,0 +1,154 @@
+name: Deploy
+
+# CD (spec §8): cada push na main publica as imagens no GHCR e atualiza a VM por SSH.
+# Passo a passo e GitHub Secrets: docs/deploy.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Um deploy por vez; um novo push espera o anterior terminar (não cancela no meio do "up").
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+env:
+  REGISTRO: ghcr.io/ocimarschroederjr
+  DIRETORIO_VM: /opt/financeiro-eq5
+
+jobs:
+  imagens:
+    name: imagem (${{ matrix.nome }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - nome: pagamentos
+            dockerfile: services/pagamentos/Dockerfile
+          - nome: notificacoes
+            dockerfile: services/notificacoes/Dockerfile
+          - nome: avaliacoes
+            dockerfile: services/avaliacoes/Dockerfile
+          - nome: mocks
+            dockerfile: mocks/Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push (${{ github.sha }} e latest)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRO }}/${{ matrix.nome }}:${{ github.sha }}
+            ${{ env.REGISTRO }}/${{ matrix.nome }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.nome }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.nome }}
+
+  deploy:
+    name: deploy na VM
+    needs: imagens
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Gerar o .env a partir dos Secrets
+        env:
+          TAG: ${{ github.sha }}
+          DOMINIO: ${{ secrets.DOMINIO }}
+          BASIC_AUTH_USUARIO: ${{ secrets.BASIC_AUTH_USUARIO }}
+          BASIC_AUTH_HASH: ${{ secrets.BASIC_AUTH_HASH }}
+          TOKEN_SERVICO_SEGREDO: ${{ secrets.TOKEN_SERVICO_SEGREDO }}
+          WEBHOOK_SEGREDO_CIFRAGEM: ${{ secrets.WEBHOOK_SEGREDO_CIFRAGEM }}
+          RABBITMQ_USUARIO: ${{ secrets.RABBITMQ_USUARIO }}
+          RABBITMQ_SENHA: ${{ secrets.RABBITMQ_SENHA }}
+          PAGAMENTOS_DB_SENHA: ${{ secrets.PAGAMENTOS_DB_SENHA }}
+          NOTIFICACOES_DB_SENHA: ${{ secrets.NOTIFICACOES_DB_SENHA }}
+          AVALIACOES_DB_SENHA: ${{ secrets.AVALIACOES_DB_SENHA }}
+          JWKS_URL: ${{ secrets.JWKS_URL }}
+          IDENTIDADE_URL: ${{ secrets.IDENTIDADE_URL }}
+          PEDIDOS_URL: ${{ secrets.PEDIDOS_URL }}
+          COMPOSE_PROFILES: ${{ secrets.COMPOSE_PROFILES }}
+          EMAIL_ADMIN: ${{ secrets.EMAIL_ADMIN }}
+          LOG_NIVEL: ${{ secrets.LOG_NIVEL }}
+          OTEL_HABILITADO: ${{ secrets.OTEL_HABILITADO }}
+          IDENTIDADE_CREDENCIAL: ${{ secrets.IDENTIDADE_CREDENCIAL }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/vm"
+          umask 077
+          bash infra/gerar-env.sh > "$RUNNER_TEMP/vm/.env"
+          cp infra/compose.prod.yaml infra/Caddyfile infra/implantar.sh "$RUNNER_TEMP/vm/"
+
+      # Falha aqui, antes de tocar na VM, se faltar alguma variável obrigatória (${VAR:?}).
+      - name: Validar o compose com o .env
+        run: docker compose -f "$RUNNER_TEMP/vm/compose.prod.yaml" --env-file "$RUNNER_TEMP/vm/.env" config --quiet
+
+      - name: Configurar o SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_CHAVE_PRIVADA: ${{ secrets.SSH_CHAVE_PRIVADA }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_CHAVE_PRIVADA" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            # Sem SSH_KNOWN_HOSTS, confia na chave que a VM apresentar agora (docs/deploy.md).
+            ssh-keyscan -T 15 -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts
+          fi
+
+      - name: Copiar compose, Caddyfile, script e .env para a VM
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USUARIO: ${{ secrets.SSH_USUARIO }}
+        run: >-
+          scp -i ~/.ssh/deploy -o BatchMode=yes -p
+          "$RUNNER_TEMP/vm/compose.prod.yaml" "$RUNNER_TEMP/vm/Caddyfile"
+          "$RUNNER_TEMP/vm/implantar.sh" "$RUNNER_TEMP/vm/.env"
+          "$SSH_USUARIO@$SSH_HOST:$DIRETORIO_VM/"
+
+      - name: Pull e up na VM (TAG=${{ github.sha }})
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USUARIO: ${{ secrets.SSH_USUARIO }}
+          GHCR_USUARIO: ${{ github.actor }}
+          TOKEN_GHCR: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$TOKEN_GHCR" |
+          ssh -i ~/.ssh/deploy -o BatchMode=yes "$SSH_USUARIO@$SSH_HOST"
+          "GHCR_USUARIO='$GHCR_USUARIO' bash $DIRETORIO_VM/implantar.sh"
+
+      - name: Smoke test
+        env:
+          DOMINIO: ${{ secrets.DOMINIO }}
+        run: bash infra/smoke-test.sh "$DOMINIO"
+
+      - name: Remover a chave SSH do runner
+        if: always()
+        run: rm -f ~/.ssh/deploy

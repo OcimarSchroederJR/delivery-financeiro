@@ -394,6 +394,11 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 - **Caddy:** HTTPS automático em `financeiro-eq5.<ip>.sslip.io`.
   - `/pagamentos/*`, `/notificacoes/*` e `/avaliacoes/*` → APIs. O FastAPI usa `root_path`, então cada Swagger fica em `/<servico>/docs`.
   - `/jaeger/*` e `/mailpit/*` exigem basic auth.
+    - Não removem o prefixo: o Jaeger roda com `base_path=/jaeger` e o Mailpit com `MP_WEBROOT=mailpit`.
+  - `/<servico>` redireciona para `/<servico>/docs`. As respostas levam HSTS, `nosniff` e `no-referrer`, e o log de acesso sai em JSON.
+- **Credenciais:** as senhas dos bancos e do RabbitMQ, o segredo de serviço, a chave de cifragem dos webhooks e as URLs das outras equipes são obrigatórias no `.env` (`${VAR:?}`). Nenhum valor padrão de desenvolvimento chega à produção.
+- **Mocks:** ficam fora por padrão e sobem com `--profile mocks` enquanto as outras equipes não estiverem no ar.
+- **Teste local:** `infra/compose.prod.local.yaml` constrói as imagens a partir do código. Com `DOMINIO=localhost`, a pilha de produção responde em `https://localhost` (veja `infra/README.md`).
 - Os segredos de produção ficam em GitHub Secrets e são gravados no `.env` da VM durante o deploy.
 
 ---
