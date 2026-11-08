@@ -1,3 +1,5 @@
+import asyncio
+import time
 from collections.abc import AsyncIterator
 
 import httpx
@@ -6,7 +8,7 @@ import respx
 from structlog.testing import capture_logs
 
 from plataforma.circuit_breaker import CircuitBreaker, CircuitoAberto
-from plataforma.cliente_http import ClienteHttp
+from plataforma.cliente_http import PRAZO_TOTAL_PADRAO, ClienteHttp
 from plataforma.correlation import HEADER_CORRELATION_ID, correlation_id_em
 from plataforma.erros import ErroDependenciaIndisponivel
 
@@ -114,3 +116,73 @@ async def test_loga_antes_e_depois_com_dependencia_status_e_duracao(cliente: Cli
     assert depois["status"] == 200
     assert isinstance(depois["duracao_ms"], float)
     assert "segredo-nao-logar" not in str(logs)
+
+
+def _transporte_lento(atraso: float, status: int = 502) -> tuple[httpx.MockTransport, list[int]]:
+    chamadas: list[int] = []
+
+    async def responder(_requisicao: httpx.Request) -> httpx.Response:
+        chamadas.append(1)
+        await asyncio.sleep(atraso)
+        return httpx.Response(status)
+
+    return httpx.MockTransport(responder), chamadas
+
+
+async def test_prazo_total_corta_os_retries_e_vira_503() -> None:
+    transporte, chamadas = _transporte_lento(0.25)
+    async with ClienteHttp(
+        "pedidos", BASE, transporte=transporte, prazo_total=0.4, espera_base=0, espera_maxima=0
+    ) as cliente:
+        inicio = time.perf_counter()
+        with pytest.raises(ErroDependenciaIndisponivel) as erro, capture_logs() as logs:
+            await cliente.get("/pedidos/1")
+        duracao = time.perf_counter() - inicio
+    assert duracao < 0.6
+    assert len(chamadas) == 2
+    assert erro.value.dependencia == "pedidos"
+    assert any(log["event"] == "http_saida_prazo_esgotado" for log in logs)
+
+
+async def test_prazo_total_esgotado_conta_como_falha_do_circuito() -> None:
+    breaker = CircuitBreaker("pedidos", limite_falhas=1)
+    transporte, _ = _transporte_lento(0.2, status=200)
+    async with ClienteHttp(
+        "pedidos", BASE, transporte=transporte, breaker=breaker, prazo_total=0.05
+    ) as cliente:
+        with pytest.raises(ErroDependenciaIndisponivel):
+            await cliente.get("/pedidos/1")
+    assert breaker.estado == "aberto"
+
+
+async def test_prazo_total_padrao_e_8_segundos() -> None:
+    async with ClienteHttp("pedidos", BASE) as cliente:
+        assert cliente.prazo_total == PRAZO_TOTAL_PADRAO == 8.0
+
+
+async def test_sem_prazo_total_nao_corta() -> None:
+    transporte, chamadas = _transporte_lento(0.05, status=200)
+    async with ClienteHttp("pedidos", BASE, transporte=transporte, prazo_total=None) as cliente:
+        resposta = await cliente.get("/pedidos/1")
+    assert resposta.status_code == 200
+    assert len(chamadas) == 1
+
+
+@pytest.mark.parametrize(
+    "erro_httpx",
+    [httpx.DecodingError("corpo corrompido"), httpx.TooManyRedirects("redirecionamentos")],
+)
+@respx.mock
+async def test_erro_httpx_que_nao_e_de_transporte_vira_503_sem_retry(
+    erro_httpx: httpx.HTTPError,
+) -> None:
+    breaker = CircuitBreaker("pedidos", limite_falhas=1)
+    rota = respx.get(f"{BASE}/pedidos/1").mock(side_effect=erro_httpx)
+    async with ClienteHttp("pedidos", BASE, breaker=breaker, espera_base=0) as cliente:
+        with pytest.raises(ErroDependenciaIndisponivel) as erro, capture_logs() as logs:
+            await cliente.get("/pedidos/1")
+    assert erro.value.dependencia == "pedidos"
+    assert rota.call_count == 1
+    assert breaker.estado == "aberto"
+    falha = next(log for log in logs if log["event"] == "http_saida_falhou")
+    assert falha["erro"] == type(erro_httpx).__name__

@@ -67,6 +67,7 @@ def criar_app(config: Config | None = None, substituicoes: Substituicoes | None 
             "pedidos",
             config.pedidos_url,
             timeout=config.timeout_http(),
+            prazo_total=config.http_prazo_total,
             transporte=trocas.transporte_pedidos,
         )
 
