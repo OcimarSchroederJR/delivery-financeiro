@@ -287,6 +287,10 @@ O workflow [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) rod
 
 Detalhes:
 
+- **Antes de existir a VM.** Sem o secret `SSH_HOST`, o job `deploy na VM` é pulado (fica
+  *skipped*, com um aviso no resumo) e o workflow termina verde. As imagens continuam sendo
+  publicadas no GHCR. Com `SSH_HOST` cadastrado e outro secret obrigatório faltando, o job
+  falha em "Validar o compose", antes de tocar na VM.
 - **Chave do host SSH.** Sem o secret opcional `SSH_KNOWN_HOSTS`, o job aceita a chave que a VM
   apresentar no momento (`ssh-keyscan`). Para fixá-la, cadastre a saída de
   `ssh-keyscan -t ed25519 <ip>`, rodado da sua máquina logo depois de criar a VM:
