@@ -65,9 +65,32 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.nome }}
           cache-to: type=gha,mode=max,scope=${{ matrix.nome }}
 
+  # Secrets não podem ir no `if:` de um job: este job diz se a VM já está configurada.
+  # Sem SSH_HOST (VM ainda não criada), o deploy é pulado em vez de falhar (docs/deploy.md §8).
+  configuracao:
+    name: configuração da VM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      pronto: ${{ steps.verificar.outputs.pronto }}
+    steps:
+      - name: Verificar se o secret SSH_HOST está cadastrado
+        id: verificar
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          if [ -n "$SSH_HOST" ]; then
+            echo "pronto=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pronto=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy pulado::SSH_HOST não está cadastrado; as imagens foram publicadas, mas a VM não foi atualizada (docs/deploy.md §4)."
+          fi
+
   deploy:
     name: deploy na VM
-    needs: imagens
+    needs: [imagens, configuracao]
+    if: needs.configuracao.outputs.pronto == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
