@@ -111,7 +111,10 @@ async def test_paginacao_ultima_pagina(cliente: httpx.AsyncClient) -> None:
     assert corpo["itens"] == list(range(40, 57))
 
 
-@pytest.mark.parametrize("params", [{"tamanho": 101}, {"tamanho": 0}, {"pagina": 0}])
+@pytest.mark.parametrize(
+    "params",
+    [{"tamanho": 101}, {"tamanho": 0}, {"pagina": 0}, {"pagina": 1_000_001}, {"pagina": 2**65}],
+)
 async def test_paginacao_fora_dos_limites(
     cliente: httpx.AsyncClient, params: dict[str, int]
 ) -> None:
