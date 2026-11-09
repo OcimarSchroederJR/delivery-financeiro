@@ -21,3 +21,14 @@ O cliente avalia um pedido entregue e pode abrir uma disputa. Se o admin der a d
 ![Fluxo de disputa](fluxo-disputa.svg)
 
 Cada diagrama também tem uma versão `.png`.
+
+## Diagramas Mermaid
+
+Renderizados direto no GitHub; nomes de filas, rotas e estados conferidos com o código.
+
+- [C4: contexto](c4-contexto.md)
+- [C4: containers](c4-containers.md)
+- [Sequência: pagamento de um pedido](sequencia-pagamento.md)
+- [Sequência: saga de estorno da disputa](sequencia-saga-disputa.md)
+- [Sequência: entrega de webhook](sequencia-webhook.md)
+- [Estados do Pagamento e da Disputa](estados.md)
