@@ -37,6 +37,7 @@ def _pagamento(item: dict[str, Any]) -> PagamentoExterno:
         cliente_id=str(item["cliente_id"]),
         valor_centavos=int(item["valor_centavos"]),
         status=str(item["status"]),
+        saldo_estornavel_centavos=int(item["saldo_estornavel_centavos"]),
     )
 
 

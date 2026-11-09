@@ -128,6 +128,7 @@ class PagamentoExterno:
     cliente_id: str
     valor_centavos: int
     status: str
+    saldo_estornavel_centavos: int
 
 
 @dataclass(frozen=True, slots=True)

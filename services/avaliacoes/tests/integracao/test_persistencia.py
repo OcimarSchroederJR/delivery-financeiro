@@ -51,7 +51,7 @@ def _disputa(pedido_id: str = "ped-4", cliente_id: str = "cliente-1") -> Disputa
         motivo=MotivoDisputa.QUALIDADE,
         descricao="fria",
         valor_solicitado_centavos=1000,
-        valor_pago_centavos=3200,
+        saldo_estornavel_centavos=3200,
         agora=AGORA,
     )
 

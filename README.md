@@ -20,6 +20,8 @@ Luiz Tenório · João Gabriel · Alana Brito · Ocimar Schroeder
 | Avaliações | Entidade + Tarefa | 8015 | http://localhost:8015/docs |
 
 Contratos gerados: [`docs/openapi/`](docs/openapi/) e [`docs/asyncapi/`](docs/asyncapi/).
+Para as outras equipes, o [guia de integração](docs/guia-de-integracao.md) explica como chamar
+cada serviço, como publicar eventos e como validar os webhooks.
 
 ## Como rodar
 
@@ -41,6 +43,9 @@ docker compose --profile mocks down -v            # derruba tudo
 | Mock Logística (Eq. 4) | http://localhost:8010/docs |
 
 Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: application/json' -d '{"sub":"cliente-1","papel":"cliente"}'`.
+
+A coleção Postman com o fluxo completo da demo fica em [`docs/postman/`](docs/postman/). Para rodar
+no terminal: `npx newman run docs/postman/delivery-financeiro.postman_collection.json -e docs/postman/local.postman_environment.json`.
 
 ### Produção
 

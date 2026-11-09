@@ -311,7 +311,7 @@ aberta ──PATCH procedente──► estorno_pendente ──estorno ok──�
 **Regras**
 1. Para avaliar, o pedido precisa estar com status de entregue, segundo `GET {PEDIDOS_URL}/pedidos/{id}`, e o `cliente_id` do pedido precisa ser igual ao `sub` do token. O `restaurante_id` é copiado do pedido.
 2. Só uma avaliação por pedido.
-3. Para abrir disputa, é preciso existir um pagamento `aprovado` ou `parcialmente_estornado` do pedido, segundo `GET {PAGAMENTOS_URL}/v1/pagamentos?pedido_id=`. Só uma disputa não-terminal por pedido. `valor_solicitado_centavos` não pode passar do valor pago.
+3. Para abrir disputa, é preciso existir um pagamento `aprovado` ou `parcialmente_estornado` do pedido, segundo `GET {PAGAMENTOS_URL}/v1/pagamentos?pedido_id=`. Só uma disputa não-terminal por pedido. `valor_solicitado_centavos` não pode passar do `saldo_estornavel_centavos` do pagamento (o que ainda dá para estornar), e o valor aprovado no `PATCH` é conferido de novo contra o saldo atual. Acima disso, `422 VALOR_EXCEDE_PAGO`.
 4. O `PATCH` exige papel `admin`. O corpo é `{"status": "procedente" | "improcedente", "valor_aprovado_centavos": ..., "parecer": "..."}`. Se `valor_aprovado_centavos` vier ausente, usa-se o valor solicitado.
 5. **Eventos via outbox:**
    - `avaliacao.registrada` ao criar uma avaliação;

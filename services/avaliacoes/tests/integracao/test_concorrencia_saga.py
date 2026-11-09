@@ -42,6 +42,22 @@ pytestmark = pytest.mark.integracao
 
 URL_PAGAMENTOS = "http://pagamentos.teste"
 ROTA_ESTORNOS = "/v1/pagamentos/pag-1/estornos"
+# O PATCH confere o saldo atual antes de aprovar
+LISTAGEM_PAGAMENTOS = {
+    "itens": [
+        {
+            "id": "pag-1",
+            "pedido_id": "ped-4",
+            "cliente_id": "cliente-1",
+            "valor_centavos": 3200,
+            "status": "aprovado",
+            "saldo_estornavel_centavos": 3200,
+        }
+    ],
+    "pagina": 1,
+    "tamanho": 100,
+    "total": 1,
+}
 
 
 @dataclass
@@ -89,7 +105,7 @@ def _disputa_aberta() -> Disputa:
         motivo=MotivoDisputa.ITEM_FALTANDO,
         descricao=None,
         valor_solicitado_centavos=1000,
-        valor_pago_centavos=3200,
+        saldo_estornavel_centavos=3200,
         agora=agora_utc() - timedelta(minutes=1),
     )
 
@@ -135,6 +151,7 @@ async def test_patch_e_worker_concluem_a_mesma_disputa_uma_unica_vez(
 
     parar = asyncio.Event()
     with respx.mock(base_url=URL_PAGAMENTOS) as mock:
+        mock.get("/v1/pagamentos").respond(200, json=LISTAGEM_PAGAMENTOS)
         rota = mock.post(ROTA_ESTORNOS).mock(side_effect=pagamentos.responder)
         worker = asyncio.create_task(executar(config, parar))
         try:

@@ -14,7 +14,7 @@ AGORA = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
 DEPOIS = AGORA + timedelta(minutes=1)
 
 
-def _abrir(valor: int = 1000, pago: int = 3200, descricao: str | None = None) -> Disputa:
+def _abrir(valor: int = 1000, saldo: int = 3200, descricao: str | None = None) -> Disputa:
     return Disputa.abrir(
         pedido_id="ped-4",
         pagamento_id="pag-1",
@@ -22,7 +22,7 @@ def _abrir(valor: int = 1000, pago: int = 3200, descricao: str | None = None) ->
         motivo=MotivoDisputa.ITEM_FALTANDO,
         descricao=descricao,
         valor_solicitado_centavos=valor,
-        valor_pago_centavos=pago,
+        saldo_estornavel_centavos=saldo,
         agora=AGORA,
     )
 
@@ -48,12 +48,12 @@ def test_abrir_cria_disputa_aberta() -> None:
     assert disputa.chave_idempotencia_estorno == f"disputa-{disputa.id}"
 
 
-def test_valor_igual_ao_pago_e_aceito_e_acima_e_recusado() -> None:
+def test_valor_igual_ao_saldo_e_aceito_e_acima_e_recusado() -> None:
     assert _abrir(valor=3200).valor_solicitado_centavos == 3200
     with pytest.raises(ValorExcedePago) as erro:
         _abrir(valor=3201)
     assert erro.value.status_http == 422
-    assert erro.value.detalhes == {"valor_pago_centavos": 3200}
+    assert erro.value.detalhes == {"saldo_estornavel_centavos": 3200}
 
 
 @pytest.mark.parametrize("valor", [0, -5])
@@ -99,6 +99,32 @@ def test_aprovar_com_valor_invalido(valor: int) -> None:
             valor_aprovado_centavos=valor, parecer=None, agora=DEPOIS, primeira_tentativa_em=DEPOIS
         )
     assert disputa.status is StatusDisputa.ABERTA
+
+
+def test_aprovar_acima_do_saldo_atual_e_recusado() -> None:
+    disputa = _abrir(valor=1000)
+    with pytest.raises(ValorExcedePago) as erro:
+        disputa.aprovar(
+            valor_aprovado_centavos=None,
+            parecer=None,
+            agora=DEPOIS,
+            primeira_tentativa_em=DEPOIS,
+            saldo_estornavel_centavos=999,
+        )
+    assert erro.value.detalhes == {"saldo_estornavel_centavos": 999}
+    assert disputa.status is StatusDisputa.ABERTA
+
+
+def test_aprovar_dentro_do_saldo_atual() -> None:
+    disputa = _abrir(valor=1000)
+    disputa.aprovar(
+        valor_aprovado_centavos=600,
+        parecer=None,
+        agora=DEPOIS,
+        primeira_tentativa_em=DEPOIS,
+        saldo_estornavel_centavos=600,
+    )
+    assert disputa.valor_aprovado_centavos == 600
 
 
 def test_concluir_estorno_resolve() -> None:

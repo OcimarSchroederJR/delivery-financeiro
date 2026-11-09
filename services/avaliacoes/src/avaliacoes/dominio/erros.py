@@ -50,7 +50,7 @@ class DisputaJaAberta(ErroConflito):
 
 class ValorExcedePago(ErroRegraDeNegocio):
     codigo_padrao = "VALOR_EXCEDE_PAGO"
-    mensagem_padrao = "O valor solicitado excede o valor pago."
+    mensagem_padrao = "O valor excede o saldo ainda estornável do pagamento."
 
 
 class DisputaNaoEncontrada(ErroNaoEncontrado):

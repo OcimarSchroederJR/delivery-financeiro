@@ -28,7 +28,7 @@ def _disputa() -> Disputa:
         motivo=MotivoDisputa.NAO_ENTREGUE,
         descricao=None,
         valor_solicitado_centavos=3200,
-        valor_pago_centavos=3200,
+        saldo_estornavel_centavos=3200,
         agora=AGORA,
     )
 
