@@ -20,6 +20,7 @@ Luiz Tenório · João Gabriel · Alana Brito · Ocimar Schroeder
 | Avaliações | Entidade + Tarefa | 8015 | http://localhost:8015/docs |
 
 Contratos gerados: [`docs/openapi/`](docs/openapi/) e [`docs/asyncapi/`](docs/asyncapi/).
+Diagramas de arquitetura (C4, sequências e estados, em Mermaid): [`docs/diagramas/`](docs/diagramas/README.md).
 Para as outras equipes, o [guia de integração](docs/guia-de-integracao.md) explica como chamar
 cada serviço, como publicar eventos e como validar os webhooks.
 
