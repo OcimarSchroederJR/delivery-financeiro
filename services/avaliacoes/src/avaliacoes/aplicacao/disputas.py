@@ -79,7 +79,7 @@ class AbrirDisputa:
             motivo=comando.motivo,
             descricao=comando.descricao,
             valor_solicitado_centavos=comando.valor_solicitado_centavos,
-            valor_pago_centavos=pagamento.valor_centavos,
+            saldo_estornavel_centavos=pagamento.saldo_estornavel_centavos,
             agora=self._relogio(),
         )
         async with self._uow() as uow:
@@ -138,6 +138,9 @@ class DecidirDisputa:
         self._relogio = relogio
 
     async def executar(self, disputa_id: uuid.UUID, comando: ComandoDecidirDisputa) -> Disputa:
+        saldo = None
+        if comando.decisao is Decisao.PROCEDENTE:
+            saldo = await self._saldo_atual(disputa_id)
         agora = self._relogio()
         async with self._uow() as uow:
             disputa = await uow.disputas.obter(disputa_id, para_atualizar=True)
@@ -159,6 +162,7 @@ class DecidirDisputa:
                 parecer=comando.parecer,
                 agora=agora,
                 primeira_tentativa_em=agora + self._saga.politica.atraso_inicial,
+                saldo_estornavel_centavos=saldo,
             )
             await uow.disputas.salvar(disputa)
             await uow.commit()
@@ -173,3 +177,11 @@ class DecidirDisputa:
             # A decisão já está gravada (estorno_pendente): o worker conclui depois (202).
             _log.exception("estorno_sincrono_falhou", disputa_id=str(disputa_id))
             return disputa
+
+    async def _saldo_atual(self, disputa_id: uuid.UUID) -> int | None:
+        # Consulta fora da transação para não segurar a trava durante a chamada HTTP.
+        async with self._uow() as uow:
+            disputa = await uow.disputas.obter(disputa_id)
+        if disputa is None or disputa.status is not StatusDisputa.ABERTA:
+            return None
+        return await self._saga.saldo_estornavel(disputa)

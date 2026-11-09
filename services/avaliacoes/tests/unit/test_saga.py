@@ -18,7 +18,12 @@ from avaliacoes.aplicacao.portas import (
 )
 from avaliacoes.aplicacao.saga import PoliticaDeRetentativa, RetentativaDeEstornos, SagaEstorno
 from avaliacoes.dominio.disputa import Decisao, Disputa, MotivoDisputa, StatusDisputa
-from avaliacoes.dominio.erros import DisputaNaoEncontrada, TransicaoInvalida, ValorAprovadoInvalido
+from avaliacoes.dominio.erros import (
+    DisputaNaoEncontrada,
+    TransicaoInvalida,
+    ValorAprovadoInvalido,
+    ValorExcedePago,
+)
 from avaliacoes.testes.fakes import BancoEmMemoria, EmissorTokenFake, PagamentosFake, RelogioFake
 
 CLIENTE_1 = Solicitante(id="cliente-1", token="token-cliente-1")
@@ -138,6 +143,45 @@ async def test_valor_aprovado_invalido_nao_muda_nada(
     with pytest.raises(ValorAprovadoInvalido):
         await decidir.executar(disputa.id, comando)
     assert banco.disputas[disputa.id].status is StatusDisputa.ABERTA
+
+
+async def test_saldo_consumido_depois_da_abertura_recusa_a_aprovacao(
+    decidir: DecidirDisputa, disputa: Disputa, pagamentos: PagamentosFake, banco: BancoEmMemoria
+) -> None:
+    pagamentos.definir_saldo("pag-1", 800)
+    with pytest.raises(ValorExcedePago) as erro:
+        await decidir.executar(disputa.id, PROCEDENTE)
+    assert erro.value.detalhes == {"saldo_estornavel_centavos": 800}
+    assert banco.disputas[disputa.id].status is StatusDisputa.ABERTA
+    assert pagamentos.chamadas_estorno == []
+    assert pagamentos.tokens_listagem[-1] == "token-de-servico-fake"
+
+
+async def test_aprovacao_parcial_cabe_no_saldo_atual(
+    decidir: DecidirDisputa, disputa: Disputa, pagamentos: PagamentosFake
+) -> None:
+    pagamentos.definir_saldo("pag-1", 800)
+    comando = ComandoDecidirDisputa(Decisao.PROCEDENTE, valor_aprovado_centavos=800)
+    resultado = await decidir.executar(disputa.id, comando)
+    assert resultado.status is StatusDisputa.RESOLVIDA
+    assert pagamentos.chamadas_estorno[0].valor_centavos == 800
+
+
+async def test_sem_consultar_o_saldo_a_aprovacao_segue(
+    decidir: DecidirDisputa, disputa: Disputa, pagamentos: PagamentosFake
+) -> None:
+    pagamentos.indisponivel = True
+    resultado = await decidir.executar(disputa.id, PROCEDENTE)
+    assert resultado.valor_aprovado_centavos == 1000
+    assert len(pagamentos.chamadas_estorno) == 1
+
+
+async def test_pagamento_sumiu_da_listagem_nao_bloqueia_a_aprovacao(
+    decidir: DecidirDisputa, disputa: Disputa, pagamentos: PagamentosFake
+) -> None:
+    pagamentos.pagamentos.clear()
+    resultado = await decidir.executar(disputa.id, PROCEDENTE)
+    assert resultado.valor_aprovado_centavos == 1000
 
 
 async def test_falha_transitoria_mantem_pendente_e_agenda_retentativa(

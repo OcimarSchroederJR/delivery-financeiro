@@ -44,7 +44,7 @@ async def test_worker_conclui_saga_pendente_e_publica_disputa_resolvida(
         motivo=MotivoDisputa.ITEM_FALTANDO,
         descricao=None,
         valor_solicitado_centavos=1000,
-        valor_pago_centavos=3200,
+        saldo_estornavel_centavos=3200,
         agora=agora - timedelta(minutes=1),
     )
     disputa.aprovar(

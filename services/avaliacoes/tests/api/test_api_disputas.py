@@ -45,6 +45,12 @@ async def test_post_201_publica_disputa_aberta(
             "VALOR_EXCEDE_PAGO",
         ),
         (
+            lambda p: p.adicionar("ped-4", saldo_estornavel_centavos=999),
+            {},
+            422,
+            "VALOR_EXCEDE_PAGO",
+        ),
+        (
             lambda p: p.adicionar("ped-4", cliente_id="cliente-2"),
             {},
             403,
@@ -198,6 +204,15 @@ async def test_patch_falha_definitiva_200_estorno_falhou(
     assert resposta.json()["status"] == "estorno_falhou"
     assert resposta.json()["motivo_falha_estorno"] == "PAGAMENTO_NAO_ESTORNAVEL"
     assert banco.eventos[-1][0] == "disputa.estorno_falhou"
+
+
+async def test_patch_acima_do_saldo_atual_422(
+    api: httpx.AsyncClient, token_admin: str, disputa_id: str, pagamentos: PagamentosFake
+) -> None:
+    pagamentos.definir_saldo("pag-1", 500)
+    resposta = await _decidir(api, token_admin, disputa_id, status="procedente")
+    assert (resposta.status_code, resposta.json()["codigo"]) == (422, "VALOR_EXCEDE_PAGO")
+    assert pagamentos.chamadas_estorno == []
 
 
 async def test_patch_regras(

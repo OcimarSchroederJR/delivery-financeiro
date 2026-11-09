@@ -31,7 +31,9 @@ from avaliacoes.aplicacao.portas import (
 )
 from avaliacoes.dominio.disputa import Disputa, StatusDisputa
 from avaliacoes.dominio.erros import DisputaNaoEncontrada
+from plataforma.circuit_breaker import CircuitoAberto
 from plataforma.correlation import correlation_id_em
+from plataforma.erros import ErroDependenciaIndisponivel
 from plataforma.logs import obter_logger
 from plataforma.tempo import agora_utc
 
@@ -74,6 +76,18 @@ class SagaEstorno:
         self._emissor = emissor_token
         self.politica = politica or PoliticaDeRetentativa()
         self._relogio = relogio
+
+    async def saldo_estornavel(self, disputa: Disputa) -> int | None:
+        """Saldo atual do pagamento; ``None`` se não deu para consultar (o estorno decide)."""
+        try:
+            pagamentos = await self._pagamentos.listar_por_pedido(
+                disputa.pedido_id, token=self._emissor.emitir()
+            )
+        except (ErroDependenciaIndisponivel, CircuitoAberto):
+            _log.warning("saldo_estornavel_indisponivel", disputa_id=str(disputa.id))
+            return None
+        pagamento = next((p for p in pagamentos if p.id == disputa.pagamento_id), None)
+        return None if pagamento is None else pagamento.saldo_estornavel_centavos
 
     async def tentar(self, disputa_id: uuid.UUID) -> Disputa:
         """Uma tentativa de estorno (passos 2 a 5). Seguro para repetir."""
