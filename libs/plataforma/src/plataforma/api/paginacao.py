@@ -8,6 +8,8 @@ from fastapi import Depends, Query
 from pydantic import BaseModel
 
 TAMANHO_MAXIMO = 100
+# Sem teto, uma página gigante estoura o OFFSET do Postgres (bigint) e vira 500
+PAGINA_MAXIMA = 1_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,7 +23,7 @@ class ParametrosPaginacao:
 
 
 def parametros_paginacao(
-    pagina: Annotated[int, Query(ge=1, description="Página, começando em 1")] = 1,
+    pagina: Annotated[int, Query(ge=1, le=PAGINA_MAXIMA, description="Página, começando em 1")] = 1,
     tamanho: Annotated[
         int, Query(ge=1, le=TAMANHO_MAXIMO, description="Itens por página (máx. 100)")
     ] = 20,

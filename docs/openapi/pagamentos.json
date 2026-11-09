@@ -527,6 +527,7 @@
             "schema": {
               "default": 1,
               "description": "Página, começando em 1",
+              "maximum": 1000000,
               "minimum": 1,
               "title": "Pagina",
               "type": "integer"
@@ -833,6 +834,7 @@
             "schema": {
               "default": 1,
               "description": "Página, começando em 1",
+              "maximum": 1000000,
               "minimum": 1,
               "title": "Pagina",
               "type": "integer"

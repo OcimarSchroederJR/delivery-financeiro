@@ -96,6 +96,26 @@ def test_interpretar_corpo() -> None:
 
 
 @pytest.mark.parametrize(
+    "corpo",
+    [
+        rb'{"dados": {"a\u0000": 1}}',
+        rb'{"dados": {"a": "x\u0000y"}}',
+        rb'{"dados": {"lista": [{"b": ["\u0000"]}]}}',
+        rb'{"tipo\u0000": "a.b"}',
+    ],
+)
+def test_caractere_nulo_e_recusado_em_qualquer_lugar(corpo: bytes) -> None:
+    # O Postgres não guarda \u0000 em JSONB nem em texto
+    with pytest.raises(EnvelopeInvalido) as erro:
+        interpretar_corpo(corpo)
+    assert erro.value.status_http == 400
+
+
+def test_barra_invertida_seguida_de_u0000_literal_e_aceita() -> None:
+    assert interpretar_corpo(rb'{"dados": {"a": "\\u0000"}}') == {"dados": {"a": "\\u0000"}}
+
+
+@pytest.mark.parametrize(
     ("campo", "valor"),
     [
         ("cliente_id", "c" * 129),
