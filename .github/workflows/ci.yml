@@ -118,13 +118,87 @@ jobs:
             run --rm --no-deps -T caddy \
             sh -c 'caddy fmt /etc/caddy/Caddyfile | diff /etc/caddy/Caddyfile - && caddy validate --config /etc/caddy/Caddyfile'
 
+  e2e:
+    name: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RELATORIOS: e2e-relatorios
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Subir a stack com os mocks
+        run: docker compose --profile mocks up -d --build
+
+      - name: Esperar os serviços, os mocks e o Mailpit
+        run: |
+          for url in 8013/saude/pronto 8014/saude/pronto 8015/saude/pronto \
+                     8001/saude/vivo 8008/saude/vivo 8010/saude/vivo 8025/readyz; do
+            timeout 180 bash -c "until curl -fsS -o /dev/null http://localhost:$url; do sleep 2; done" \
+              || { echo "localhost:$url não ficou pronto em 180 s"; exit 1; }
+          done
+
+      # A coleção roda antes do fuzzing para os webhooks criados pelo schemathesis não atrasarem o worker
+      - name: Coleção Postman (Newman)
+        run: >-
+          npx --yes newman@6.2.1 run docs/postman/delivery-financeiro.postman_collection.json
+          -e docs/postman/ci.postman_environment.json
+          --reporters cli,junit --reporter-junit-export "$RELATORIOS/newman.xml"
+
+      - name: Contratos OpenAPI (schemathesis)
+        run: |
+          token=$(curl -fsS -X POST localhost:8001/tokens -H 'Content-Type: application/json' \
+            -d '{"sub": "admin-e2e", "papel": "admin"}' | jq -r .access_token)
+          falhou=0
+          for porta in 8013 8014 8015; do
+            # Fora: status_code_conformance (400 de JSON malformado não está no OpenAPI),
+            # positive/negative_data_rejection (regras de negócio mais rígidas que o schema),
+            # unsupported_method e allow_header_conformance (405 do próprio FastAPI)
+            uv run --locked --only-group dev schemathesis run "http://localhost:$porta/openapi.json" \
+              -H "Authorization: Bearer $token" \
+              --checks not_a_server_error,content_type_conformance,response_headers_conformance,response_schema_conformance,ignored_auth,use_after_free,ensure_resource_availability \
+              --max-examples 50 --generation-deterministic \
+              --report junit --report-junit-path "$RELATORIOS/schemathesis-$porta.xml" \
+              || falhou=1
+          done
+          exit $falhou
+
+      - name: Guardar os logs dos containers
+        if: failure()
+        run: |
+          mkdir -p "$RELATORIOS"
+          docker compose --profile mocks ps -a > "$RELATORIOS/compose-ps.txt"
+          docker compose --profile mocks logs --no-color --timestamps > "$RELATORIOS/compose.log"
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-logs
+          path: ${{ env.RELATORIOS }}/
+          retention-days: 7
+
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose --profile mocks down -v
+
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [componente, compose]
+    needs: [componente, compose, e2e]
     runs-on: ubuntu-24.04
     steps:
       - name: Verificar resultado dos jobs
         run: |
           test "${{ needs.componente.result }}" = "success"
           test "${{ needs.compose.result }}" = "success"
+          test "${{ needs.e2e.result }}" = "success"
