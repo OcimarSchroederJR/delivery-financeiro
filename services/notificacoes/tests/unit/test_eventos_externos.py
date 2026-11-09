@@ -70,6 +70,10 @@ async def test_tipo_reservado_e_recusado(tipo: str) -> None:
         _envelope(mensagem_id="nao-uuid"),
         _envelope(ocorrido_em="2026-10-14T14:30:00"),
         _envelope(correlation_id=""),
+        _envelope(dados={"a": "x\x00y"}),
+        _envelope(dados={"a\x00": 1}),
+        _envelope(dados={"a": ["\ud800"]}),
+        _envelope(dados={"aninhado": {"b": "\udfff"}}),
     ],
 )
 async def test_envelope_invalido(dados: object) -> None:

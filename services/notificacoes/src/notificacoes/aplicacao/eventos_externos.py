@@ -66,6 +66,24 @@ def _problema_do_id(valor: Any) -> str | None:
     return None
 
 
+def _texto_invalido_para_o_banco(texto: str) -> bool:
+    """NUL e surrogate solto não cabem no JSONB do Postgres (viraria 500 no INSERT)."""
+    return any(ord(caractere) == 0 or 0xD800 <= ord(caractere) <= 0xDFFF for caractere in texto)
+
+
+def _tem_texto_invalido(valor: Any) -> bool:
+    if isinstance(valor, str):
+        return _texto_invalido_para_o_banco(valor)
+    if isinstance(valor, Mapping):
+        return any(
+            _texto_invalido_para_o_banco(chave) or _tem_texto_invalido(item)
+            for chave, item in valor.items()
+        )
+    if isinstance(valor, list):
+        return any(_tem_texto_invalido(item) for item in valor)
+    return False
+
+
 def _validar_ids(dados: Mapping[str, Any]) -> None:
     """Campos ``*_id`` viram destinatário, assunto de e-mail e colunas do banco."""
     detalhes = [
@@ -90,6 +108,17 @@ def validar_envelope(dados: object) -> EnvelopeEvento:
         ]
         raise EnvelopeInvalido(detalhes={"detalhes": detalhes}) from None
     _validar_ids(envelope.dados)
+    if _tem_texto_invalido(envelope.dados) or _tem_texto_invalido(envelope.correlation_id):
+        raise EnvelopeInvalido(
+            detalhes={
+                "detalhes": [
+                    {
+                        "campo": "dados",
+                        "mensagem": "Texto com caractere nulo ou surrogate inválido não é aceito.",
+                    }
+                ]
+            }
+        )
     return envelope
 
 
