@@ -102,10 +102,13 @@ def test_interpretar_corpo() -> None:
         rb'{"dados": {"a": "x\u0000y"}}',
         rb'{"dados": {"lista": [{"b": ["\u0000"]}]}}',
         rb'{"tipo\u0000": "a.b"}',
+        rb'{"dados": {"a": "\ud800"}}',
+        rb'{"dados": {"\udc00": 1}}',
+        rb'{"dados": {"lista": ["ok", "x\udfffy"]}}',
     ],
 )
-def test_caractere_nulo_e_recusado_em_qualquer_lugar(corpo: bytes) -> None:
-    # O Postgres não guarda \u0000 em JSONB nem em texto
+def test_nulo_e_surrogate_solto_sao_recusados_em_qualquer_lugar(corpo: bytes) -> None:
+    # O Postgres não guarda \u0000 nem surrogate solto em JSONB
     with pytest.raises(EnvelopeInvalido) as erro:
         interpretar_corpo(corpo)
     assert erro.value.status_http == 400
@@ -113,6 +116,11 @@ def test_caractere_nulo_e_recusado_em_qualquer_lugar(corpo: bytes) -> None:
 
 def test_barra_invertida_seguida_de_u0000_literal_e_aceita() -> None:
     assert interpretar_corpo(rb'{"dados": {"a": "\\u0000"}}') == {"dados": {"a": "\\u0000"}}
+
+
+def test_emoji_em_par_de_surrogates_e_aceito() -> None:
+    corpo = rb'{"dados": {"a": "\ud83d\ude00"}}'
+    assert interpretar_corpo(corpo) == {"dados": {"a": "\U0001f600"}}
 
 
 @pytest.mark.parametrize(
