@@ -1,17 +1,20 @@
 # Levantamento de Requisitos — Financeiro e Pós
 
 **Projeto:** Plataforma de Delivery — Integração de Sistemas
-**Grupo:** Equipe 3 (Financeiro e Pós) — Sessão 3
-**Versão:** 01.00
-**Data:** 22/09/2026
+**Grupo:** Equipe 5 (Financeiro e Pós)
+**Versão:** 02.00
+**Data:** 09/11/2026
 **Identificador do documento:** LR-FIN
 **Localização:** `delivery-financeiro/docs/levantamento-requisitos.md`
+
+> **Numeração da equipe a confirmar com o professor.** A versão 01.00 deste documento usava "Equipe 3 — Sessão 3"; o README e a especificação de design usam "Equipe 5". Até a confirmação, este documento segue o README e a especificação ("Equipe 5"). Nas referências às outras equipes, vale a numeração da especificação: Equipe 1 (Identidade), Equipe 3 (Checkout/Pedidos) e Equipe 4 (Logística).
 
 ## Histórico de revisões
 
 | Versão | Data | Autores | Descrição |
 |---|---|---|---|
 | 01.00 | 22/09/2026 | Luiz Tenório, João Gabriel, Alana Brito, Ocimar Schroeder | Versão inicial do levantamento de requisitos dos serviços de Pagamentos, Notificações e Avaliações |
+| 02.00 | 09/11/2026 | Luiz Tenório, João Gabriel, Alana Brito, Ocimar Schroeder | Alinhamento aos contratos implementados (`docs/openapi/`, `docs/asyncapi/`): rotas `/v1`, estorno e disputa como recursos, eventos e webhooks, idempotência, outbox/inbox, retry com DLQ e formato de erro; numeração da equipe; seção de rastreabilidade |
 
 ## Equipe
 
@@ -35,6 +38,7 @@
 7. [Requisitos de Integração](#7-requisitos-de-integração)
 8. [Casos de Uso](#8-casos-de-uso)
 9. [Gerência de Requisitos](#9-gerência-de-requisitos)
+10. [Rastreabilidade: história, rota e PR](#10-rastreabilidade-história-rota-e-pr)
 
 ---
 
@@ -42,19 +46,21 @@
 
 ### 1.1. Propósito
 
-Este documento especifica os requisitos dos serviços de **Pagamentos**, **Notificações** e **Avaliações**, sob responsabilidade da Equipe 3 (Financeiro e Pós) na disciplina de Integração de Sistemas. Ele serve como referência para o desenvolvimento, testes e integração desses serviços com os demais 12 microsserviços da Plataforma de Delivery.
+Este documento especifica os requisitos dos serviços de **Pagamentos**, **Notificações** e **Avaliações**, sob responsabilidade da Equipe 5 (Financeiro e Pós) na disciplina de Integração de Sistemas. Ele serve como referência para o desenvolvimento, testes e integração desses serviços com os demais 12 microsserviços da Plataforma de Delivery.
 
 ### 1.2. Público-alvo
 
-Este documento é destinado aos integrantes da equipe responsável pelos serviços aqui descritos, às demais equipes da disciplina que consomem ou são consumidas por esses serviços (Identidade, Checkout), e ao professor responsável pela avaliação do projeto.
+Este documento é destinado aos integrantes da equipe responsável pelos serviços aqui descritos, às demais equipes da disciplina que consomem ou são consumidas por esses serviços (Identidade, Checkout/Pedidos, Logística), e ao professor responsável pela avaliação do projeto.
 
 ### 1.3. Escopo
 
-Este documento trata exclusivamente dos 3 serviços sob responsabilidade da Equipe 3:
+Este documento trata exclusivamente dos 3 serviços sob responsabilidade da Equipe 5:
 
-- **Pagamentos** (porta 8051): processamento de transações financeiras de pedidos.
-- **Notificações** (porta 8052): envio de e-mails e disparo de webhooks de alerta.
-- **Avaliações** (porta 8053): coleta de notas, comentários e gestão de disputas.
+- **Pagamentos** (porta local 8013): autorização de pagamentos de pedidos (cartão e Pix), antifraude e estornos.
+- **Notificações** (porta local 8014): consumo de eventos, envio de e-mails e entrega de webhooks por inscrição.
+- **Avaliações** (porta local 8015): avaliações de pedidos entregues, resumo por restaurante e disputas com saga de estorno.
+
+Os contratos implementados estão em `docs/openapi/` (HTTP) e `docs/asyncapi/` (eventos), e o desenho completo em [`docs/arquitetura/especificacao.md`](arquitetura/especificacao.md). Em caso de divergência, vale o OpenAPI.
 
 Não fazem parte do escopo deste documento os requisitos dos demais 12 serviços da plataforma (Identidade, Catálogo, Checkout, Logística), que são de responsabilidade de outras equipes e documentados separadamente por elas.
 
@@ -63,6 +69,10 @@ Não fazem parte do escopo deste documento os requisitos dos demais 12 serviços
 | Termo | Definição |
 |---|---|
 | JWT | JSON Web Token, usado para autenticação entre serviços |
+| JWKS | Conjunto de chaves públicas publicado pela Identidade, usado para validar o JWT localmente |
+| Outbox | Evento gravado na mesma transação da mudança de estado e publicado depois por um relay |
+| Inbox | Registro do `mensagem_id` já processado, para o consumidor ignorar mensagens repetidas |
+| DLQ | Dead-letter queue: fila das mensagens que esgotaram as tentativas |
 | RN | Regra de Negócio |
 | CA | Critério de Aceite |
 | US | User Story |
@@ -73,6 +83,10 @@ Não fazem parte do escopo deste documento os requisitos dos demais 12 serviços
 ### 1.5. Referências
 
 - Documento de arquitetura de integração da disciplina: *Plataforma de Delivery — Arquitetura de Integração (15 Serviços)*.
+- Especificação de design da Equipe 5: [`docs/arquitetura/especificacao.md`](arquitetura/especificacao.md), seções 3 e 4.
+- Contratos HTTP: `docs/openapi/pagamentos.json`, `docs/openapi/notificacoes.json` e `docs/openapi/avaliacoes.json`.
+- Contratos de eventos: `docs/asyncapi/pagamentos.json`, `docs/asyncapi/notificacoes.json` e `docs/asyncapi/avaliacoes.json`.
+- [Guia de integração](guia-de-integracao.md) para as outras equipes.
 
 ### 1.6. Visão geral do documento
 
@@ -83,7 +97,8 @@ Não fazem parte do escopo deste documento os requisitos dos demais 12 serviços
 - A seção 6 enumera os requisitos não funcionais.
 - A seção 7 detalha os requisitos de integração entre serviços.
 - A seção 8 apresenta os principais casos de uso.
-- A seção 9 traz a matriz de gerência e rastreamento dos requisitos.
+- A seção 9 traz a matriz de gerência dos requisitos.
+- A seção 10 traz a tabela de rastreabilidade entre história, rota e PR.
 
 ---
 
@@ -91,24 +106,29 @@ Não fazem parte do escopo deste documento os requisitos dos demais 12 serviços
 
 ### 2.1. Contexto
 
-A Plataforma de Delivery é composta por 15 microsserviços independentes, divididos entre 5 equipes, sem banco de dados compartilhado e sem comunicação em memória — toda integração ocorre via HTTP. A Equipe 3 (Financeiro e Pós) é responsável pela etapa de **fechamento do ciclo do pedido**: cobrar o cliente, avisá-lo sobre o andamento e coletar sua avaliação após a entrega.
+A Plataforma de Delivery é composta por 15 microsserviços independentes, divididos entre 5 equipes, sem banco de dados compartilhado e sem comunicação em memória. A integração com as outras equipes ocorre via HTTP. A Equipe 5 (Financeiro e Pós) é responsável pela etapa de **fechamento do ciclo do pedido**: cobrar o cliente, avisá-lo sobre o andamento e coletar sua avaliação após a entrega.
 
 ### 2.2. Escopo do grupo Financeiro e Pós
 
 | Serviço | Responsabilidade |
 |---|---|
-| Pagamentos | Processar, consultar e estornar transações financeiras de pedidos |
-| Notificações | Enviar e-mails de confirmação e disparar webhooks de alerta |
-| Avaliações | Coletar notas e comentários de pedidos entregues, e gerenciar disputas sobre avaliações |
+| Pagamentos | Autorizar, consultar e estornar (total ou parcialmente) pagamentos de pedidos |
+| Notificações | Reagir a eventos: enviar e-mails e entregar webhooks a sistemas inscritos |
+| Avaliações | Coletar notas e comentários de pedidos entregues e gerenciar disputas, com estorno automático quando procedentes |
 
 ### 2.3. Descrição dos consumidores (atores)
 
 Diferente de um sistema com usuários finais diretos, os "usuários" destes serviços são majoritariamente **outros microsserviços da plataforma**:
 
-- **Equipe 3 — Checkout** (`http://localhost:8031`): aciona Pagamentos ao concluir um pedido, e Notificações/Avaliações conforme o andamento do ciclo.
-- **Equipe 1 — Identidade** (`http://localhost:8011`): validação de token JWT e consulta de dados de usuário, consumida por todos os 3 serviços.
-- **Usuário final** (indireto): a pessoa que fez o pedido é impactada pelos efeitos destes serviços (cobrança, e-mail recebido, possibilidade de avaliar), mas nunca acessa estes serviços diretamente — sempre por meio do Checkout ou de um front-end mantido por outra equipe.
-- **Administrador/Professor**: valida o funcionamento via Postman/Insomnia e observa os logs de integração no terminal.
+- **Equipe 3 — Checkout/Pedidos** (endereço real a alinhar, issue #39): chama `POST /v1/pagamentos`, publica eventos `pedido.*` em `POST /v1/eventos` e é consultada por Pagamentos e Avaliações em `GET /pedidos/{id}`.
+- **Equipe 4 — Logística** (endereço real a alinhar, issue #39): publica eventos `entrega.*` em `POST /v1/eventos`.
+- **Equipe 1 — Identidade** (endereço real a alinhar, issue #38): emite os tokens JWT (validados localmente via JWKS) e fornece o e-mail do usuário em `GET /perfis/{id}`.
+- **Cliente** (usuário final): é impactado pelos efeitos destes serviços (cobrança, e-mail recebido) e usa as rotas de avaliação e disputa por meio de um front-end mantido por outra equipe, com o token emitido pela Identidade.
+- **Administrador** (papel `admin` do token): resolve disputas e vê todas as inscrições de webhook e notificações.
+- **Serviço interno**: os workers da própria equipe usam um token de serviço (papel `servico`), aceito apenas nas rotas de estorno e de listagem de pagamentos.
+- **Professor**: valida o funcionamento via Postman/Insomnia e observa os logs de integração no terminal.
+
+Enquanto o alinhamento das issues #38 e #39 não termina, o ambiente local usa os mocks do profile `mocks` do compose: Identidade em `localhost:8001`, Pedidos em `localhost:8008` e Logística em `localhost:8010`.
 
 ---
 
@@ -120,46 +140,53 @@ Esta seção define explicitamente o que **entra** e o que **sai** de cada servi
 
 | Direção | Dado / Evento | De quem → Para quem | Protocolo |
 |---|---|---|---|
-| Entrada | Solicitação de processamento de pagamento (`pedido_id`, `metodo_pagamento`, `valor` em centavos) | Checkout (Eq. 3) → Pagamentos | HTTP/REST (JSON) |
-| Entrada | Token JWT do usuário (para validação) | Checkout → Pagamentos → Identidade (Eq. 1) | HTTP/REST (Bearer token) |
-| Entrada | Solicitação de consulta de status de transação | Checkout / Financeiro → Pagamentos | HTTP/REST |
-| Entrada | Solicitação de estorno de transação aprovada | Checkout → Pagamentos | HTTP/REST |
-| Saída | Confirmação/rejeição do pagamento (status da transação) | Pagamentos → Checkout | HTTP/REST (resposta síncrona) |
-| Saída | Disparo de notificação de pagamento aprovado | Pagamentos → Notificações | HTTP/REST (chamada interna) |
-| **Fora do escopo** | Cálculo de subtotal, aplicação de cupons, orquestração do pedido | — (é responsabilidade do Checkout) | — |
-| **Fora do escopo** | Emissão de nota fiscal, integração com gateways de pagamento reais | — (fora do escopo da disciplina) | — |
+| Entrada | `POST /v1/pagamentos` com `pedido_id`, `metodo` (`cartao_credito` ou `pix`) e `cartao` (só para cartão), com `Idempotency-Key`. O valor não vem no corpo: é lido do pedido | Checkout (Eq. 3) → Pagamentos | HTTP/REST (JSON) |
+| Entrada | Token JWT (`Authorization: Bearer`), validado localmente com a chave pública (JWKS) da Identidade | Checkout → Pagamentos (chave obtida da Identidade, Eq. 1) | HTTP/REST (Bearer token) |
+| Entrada | Consulta de pagamento: `GET /v1/pagamentos/{pagamento_id}` e `GET /v1/pagamentos?pedido_id=` | Checkout / Avaliações → Pagamentos | HTTP/REST |
+| Entrada | Estorno total ou parcial: `POST /v1/pagamentos/{pagamento_id}/estornos` com `Idempotency-Key` | Avaliações (saga da disputa) / Checkout → Pagamentos | HTTP/REST |
+| Entrada | Consulta do pedido (valor, dono e status): `GET /pedidos/{id}` | Pagamentos → Checkout (Eq. 3) | HTTP/REST |
+| Saída | Resultado do pagamento: `201` aprovado ou `409 PAGAMENTO_RECUSADO` | Pagamentos → Checkout | HTTP/REST (resposta síncrona) |
+| Saída | Eventos `pagamento.aprovado`, `pagamento.recusado` e `pagamento.estornado`, via outbox | Pagamentos → exchange `financeiro.eventos` → Notificações | RabbitMQ (AsyncAPI) |
+| **Fora do escopo** | Cálculo de subtotal, aplicação de cupons, orquestração do pedido | — (é responsabilidade do Checkout; o valor cobrado vem do pedido) | — |
+| **Fora do escopo** | Emissão de nota fiscal, integração com gateways de pagamento reais | — (o gateway é simulado, atrás da porta `GatewayDePagamento`) | — |
 
 ### 3.2. Notificações
 
 | Direção | Dado / Evento | De quem → Para quem | Protocolo |
 |---|---|---|---|
-| Entrada | Solicitação de envio de e-mail (`destinatario`, `assunto`, `mensagem`) | Pagamentos / Checkout → Notificações | HTTP/REST |
-| Entrada | Solicitação de disparo de webhook (`url`, `payload`) | Checkout → Notificações | HTTP/REST |
-| Entrada | Consulta de e-mail do usuário | Notificações → Identidade (Eq. 1) | HTTP/REST |
-| Saída | Confirmação do envio ou falha (com retry) | Notificações → serviço solicitante | HTTP/REST (resposta síncrona) |
-| Saída | E-mail efetivamente enviado | Notificações → caixa de e-mail do usuário final | SMTP (ou simulação em log, conforme decisão de implementação) |
-| **Fora do escopo** | Definição do conteúdo de negócio da notificação (ex.: regras de quando notificar) | — (é decidido por quem aciona: Pagamentos ou Checkout) | — |
+| Entrada | Eventos do domínio (`pagamento.*`, `avaliacao.*`, `disputa.*`) | Pagamentos / Avaliações → exchange `financeiro.eventos` → Notificações | RabbitMQ (AsyncAPI) |
+| Entrada | Eventos externos (`pedido.*`, `entrega.*`) no envelope padrão, em `POST /v1/eventos` (resposta `202`) | Checkout (Eq. 3) / Logística (Eq. 4) → Notificações | HTTP/REST |
+| Entrada | Inscrição de webhook: `POST /v1/webhooks` (`url` e lista de `eventos`); consulta e remoção em `GET /v1/webhooks` e `DELETE /v1/webhooks/{assinatura_id}` | Qualquer equipe → Notificações | HTTP/REST |
+| Entrada | Consulta de e-mail do usuário: `GET /perfis/{id}` | Notificações → Identidade (Eq. 1) | HTTP/REST |
+| Saída | Consulta de notificações em `GET /v1/notificacoes?destinatario_id=` e do histórico de entregas em `GET /v1/webhooks/{assinatura_id}/entregas` | Notificações → quem consultar | HTTP/REST |
+| Saída | Entrega de webhook assinada (HMAC-SHA256), com retry e DLQ | Notificações → URL inscrita | HTTP/REST (POST) |
+| Saída | E-mail enviado | Notificações → caixa de e-mail do usuário final | SMTP (Mailpit no ambiente local) |
+| **Fora do escopo** | Regras de quando notificar no domínio de outras equipes | — (é decidido por quem publica o evento; Notificações valida só o envelope dos eventos externos) | — |
 
 ### 3.3. Avaliações
 
 | Direção | Dado / Evento | De quem → Para quem | Protocolo |
 |---|---|---|---|
-| Entrada | Criação de avaliação (`pedido_id`, `usuario_id`, `nota`, `comentário`) | Usuário final (via front-end de outra equipe) → Avaliações | HTTP/REST |
-| Entrada | Token JWT do usuário (para autenticação) | Avaliações → Identidade (Eq. 1) | HTTP/REST |
-| Entrada | Confirmação de que o pedido existe e foi entregue | Avaliações → Checkout/Pedidos (Eq. 3) | HTTP/REST |
-| Entrada | Abertura de disputa sobre uma avaliação | Usuário final → Avaliações | HTTP/REST |
-| Saída | Notas e comentários de um pedido | Avaliações → quem consultar (Checkout, front-end) | HTTP/REST |
-| **Fora do escopo** | Moderação de conteúdo ofensivo, cálculo de reputação agregada do restaurante | — (não especificado no escopo atual da disciplina) | — |
+| Entrada | Criação de avaliação: `POST /v1/avaliacoes` com `pedido_id`, `nota_restaurante`, `nota_entrega` (opcional) e `comentario` (opcional). O cliente vem do `sub` do token | Cliente (via front-end de outra equipe) → Avaliações | HTTP/REST |
+| Entrada | Token JWT do usuário, validado localmente com a chave pública (JWKS) da Identidade | Cliente → Avaliações (chave obtida da Identidade, Eq. 1) | HTTP/REST (Bearer token) |
+| Entrada | Consulta do pedido (existe, é do cliente e foi entregue): `GET /pedidos/{id}` | Avaliações → Checkout/Pedidos (Eq. 3) | HTTP/REST |
+| Entrada | Abertura de disputa em `POST /v1/disputas`; decisão do admin em `PATCH /v1/disputas/{disputa_id}` | Cliente / admin → Avaliações | HTTP/REST |
+| Entrada | Consulta do pagamento do pedido: `GET /v1/pagamentos?pedido_id=` | Avaliações → Pagamentos | HTTP/REST |
+| Saída | Avaliações, resumo por restaurante e disputas: `GET /v1/avaliacoes`, `GET /v1/avaliacoes/{avaliacao_id}`, `GET /v1/resumos-avaliacoes/{restaurante_id}`, `GET /v1/disputas` e `GET /v1/disputas/{disputa_id}` | Avaliações → quem consultar (Checkout, front-end) | HTTP/REST |
+| Saída | Estorno da disputa procedente: `POST /v1/pagamentos/{pagamento_id}/estornos` com `Idempotency-Key: disputa-{disputa_id}` | Avaliações → Pagamentos | HTTP/REST |
+| Saída | Eventos `avaliacao.registrada`, `disputa.aberta`, `disputa.resolvida` e `disputa.estorno_falhou`, via outbox | Avaliações → exchange `financeiro.eventos` | RabbitMQ (AsyncAPI) |
+| **Fora do escopo** | Moderação de conteúdo ofensivo | — (não especificado no escopo atual da disciplina) | — |
 
 ---
 
 ## 4. Premissas e Restrições
 
-- Pressupõe-se que os 3 integrantes da equipe (Luiz Tenório, João Gabriel, Alana Brito) tenham disponibilidade para desenvolver, testar e integrar um serviço cada, seguindo o cronograma de ondas definido pela disciplina (Onda 3 — Financeiro só é ativado após um pedido ser gerado com sucesso pela Equipe 3 — Checkout).
-- Pressupõe-se conhecimento em Node.js/TypeScript (NestJS), Git, GitHub, Docker e PostgreSQL.
-- Cada serviço deve poder ser executado de forma isolada, sem depender da disponibilidade simultânea dos demais serviços da plataforma para subir (mas suas funcionalidades de integração dependerão deles em tempo de execução).
+- Pressupõe-se que os integrantes da equipe tenham disponibilidade para desenvolver, testar e integrar os 3 serviços, seguindo o cronograma de ondas definido pela disciplina (Onda 3 — Financeiro só é ativado após um pedido ser gerado com sucesso pelo Checkout, Equipe 3).
+- A stack adotada é Python 3.12 com FastAPI, PostgreSQL 16, RabbitMQ e Docker (especificação, seção 2). O scaffold NestJS previsto na versão 01.00 foi descartado.
+- Cada serviço deve poder ser executado de forma isolada, sem depender da disponibilidade simultânea dos demais serviços da plataforma para subir (mas suas funcionalidades de integração dependerão deles em tempo de execução). Para isso o compose oferece os mocks das Equipes 1, 3 e 4 (`--profile mocks`).
 - O banco de dados de cada serviço é isolado; é proibido acesso direto (JOIN) ao banco de outro serviço, mesmo dentro do próprio grupo Financeiro e Pós.
-- A comunicação entre Pagamentos, Notificações e Avaliações (e com os demais serviços da plataforma) ocorre exclusivamente via HTTP.
+- A comunicação síncrona entre os serviços, e com as demais equipes, ocorre via HTTP. A mensageria (RabbitMQ) é interna à Equipe 5 e serve a efeitos colaterais (notificações e webhooks); as outras equipes entram por HTTP, em `POST /v1/eventos`, sem precisar conhecer o broker.
+- Os endereços e portas das outras equipes **ainda dependem do alinhamento das issues #38 (Identidade) e #39 (Checkout e Logística)** e são configurados por variáveis de ambiente (`IDENTIDADE_URL`, `PEDIDOS_URL`, `JWKS_URL`).
 
 ---
 
@@ -167,88 +194,108 @@ Esta seção define explicitamente o que **entra** e o que **sai** de cada servi
 
 *Como um <serviço/ator>, eu quero <função>, de forma que <razão/benefício>.*
 
+Todas as rotas têm o prefixo `/v1` (exceto `/saude/*`), exigem `Authorization: Bearer <jwt>` e seguem o contrato publicado em `docs/openapi/`. Listas são paginadas com `?pagina=1&tamanho=20` (máximo 100), no formato `{"itens": [...], "pagina": 1, "tamanho": 20, "total": 57}`.
+
 ### 5.1. Pagamentos
 
 #### [US-PAG-001] Processar pagamento
 
-Como o serviço de Checkout, eu quero solicitar o processamento do pagamento de um pedido, de forma que o cliente possa concluir a compra.
+Como o serviço de Checkout, eu quero solicitar o pagamento de um pedido, de forma que o cliente possa concluir a compra. Rota: `POST /v1/pagamentos`.
 
-- [CA-PAG-01-01] A solicitação deve conter `pedido_id`, `metodo_pagamento` e `valor` (em centavos, inteiro) obrigatoriamente.
-- [CA-PAG-01-02] O sistema deve validar o token JWT do usuário junto ao serviço de Identidade antes de processar.
-- [CA-PAG-01-03] Ao concluir o processamento, o sistema deve retornar o status da transação (aprovado/recusado) e um identificador único da transação.
-- [CA-PAG-01-04] Após aprovar o pagamento, o sistema deve acionar o serviço de Notificações para envio de confirmação.
-- [CA-PAG-01-05] Se algum campo obrigatório estiver ausente, o sistema deve rejeitar a requisição com erro 400 no formato padrão.
+- [CA-PAG-01-01] A solicitação deve conter `pedido_id` e `metodo` (`cartao_credito` ou `pix`). Para cartão, deve conter também o bloco `cartao` (`numero`, `titular`, `validade`, `cvv`), que nunca é persistido nem logado (guarda-se apenas os 4 últimos dígitos).
+- [CA-PAG-01-02] O valor não vem no corpo: é obtido do pedido em `GET /pedidos/{pedido_id}` (Equipe 3). O pedido deve pertencer ao `sub` do token quando o papel for `cliente` (`403` caso contrário).
+- [CA-PAG-01-03] O cabeçalho `Idempotency-Key` é obrigatório (`400 IDEMPOTENCY_KEY_AUSENTE`). A mesma chave com o mesmo corpo devolve a resposta gravada; com corpo diferente, `422 IDEMPOTENCY_KEY_REUTILIZADA`; requisição concorrente com a mesma chave, `409 IDEMPOTENCY_EM_PROCESSAMENTO`. A chave vale por 24 h e respostas `5xx` não são gravadas.
+- [CA-PAG-01-04] Pagamento aprovado retorna `201` com o identificador do pagamento. Pagamento recusado retorna `409 PAGAMENTO_RECUSADO`, a tentativa é persistida e o corpo traz `pagamento_id`.
+- [CA-PAG-01-05] Só pode existir um pagamento aprovado por pedido (`409 PEDIDO_JA_PAGO`); pedido inexistente retorna `422 PEDIDO_INEXISTENTE`.
+- [CA-PAG-01-06] Valor acima de 500000 centavos é recusado com motivo `analise_antifraude`.
+- [CA-PAG-01-07] Ao aprovar, recusar ou estornar, o serviço grava o evento no outbox (`pagamento.aprovado`, `pagamento.recusado`, `pagamento.estornado`). Pagamentos não chama Notificações diretamente; Notificações reage ao evento.
+- [CA-PAG-01-08] Se o pedido (Equipe 3) ou o gateway estiver indisponível, a resposta é `503 DEPENDENCIA_INDISPONIVEL`, sem persistir aprovação.
 
-#### [US-PAG-002] Consultar status de transação
+#### [US-PAG-002] Consultar pagamento
 
-Como o serviço de Checkout (ou outro consumidor autorizado), eu quero consultar o status de uma transação, de forma que eu possa saber se o pagamento de um pedido foi concluído.
+Como o serviço de Checkout (ou outro consumidor autorizado), eu quero consultar um pagamento, de forma que eu possa saber se o pagamento de um pedido foi concluído. Rotas: `GET /v1/pagamentos/{pagamento_id}` e `GET /v1/pagamentos?pedido_id=`.
 
-- [CA-PAG-02-01] A consulta é feita pelo identificador da transação.
-- [CA-PAG-02-02] Se a transação não existir, o sistema deve retornar erro 404 no formato padrão.
+- [CA-PAG-02-01] A consulta individual é feita pelo identificador do pagamento; a listagem filtra por `pedido_id` na query string e é paginada.
+- [CA-PAG-02-02] Se o pagamento não existir, o sistema deve retornar `404` no formato padrão de erro.
+- [CA-PAG-02-03] A resposta informa o `status` (`aprovado`, `parcialmente_estornado`, `estornado` ou `recusado`) e o saldo estornável em centavos.
 
 #### [US-PAG-003] Estornar pagamento
 
-Como o serviço de Checkout, eu quero estornar uma transação previamente aprovada, de forma que o cliente seja reembolsado em caso de cancelamento do pedido.
+Como o serviço de Avaliações (saga da disputa) ou o Checkout, eu quero estornar um pagamento aprovado, total ou parcialmente, de forma que o cliente seja reembolsado. O estorno é um sub-recurso do pagamento. Rotas: `POST /v1/pagamentos/{pagamento_id}/estornos` e `GET /v1/pagamentos/{pagamento_id}/estornos`.
 
-- [CA-PAG-03-01] Apenas transações com status "aprovado" podem ser estornadas.
-- [CA-PAG-03-02] Ao concluir o estorno, o sistema deve atualizar o status da transação para "estornado".
-- [CA-PAG-03-03] Tentativas de estornar uma transação já estornada ou recusada devem retornar erro 400/409 no formato padrão.
+- [CA-PAG-03-01] O corpo traz `valor_centavos` e `motivo`; se `valor_centavos` vier ausente, estorna-se o saldo estornável inteiro. `Idempotency-Key` é obrigatório.
+- [CA-PAG-03-02] Pagamento recusado ou já totalmente estornado retorna `409 PAGAMENTO_NAO_ESTORNAVEL`; valor acima do saldo retorna `422 VALOR_EXCEDE_SALDO_ESTORNAVEL`.
+- [CA-PAG-03-03] O estorno parcial leva o pagamento a `parcialmente_estornado`; o estorno do restante, a `estornado`.
+- [CA-PAG-03-04] Esta rota aceita também o token de serviço interno (papel `servico`), usado pelo worker da saga de disputa.
+- [CA-PAG-03-05] Pagamento inexistente retorna `404`. A lista de estornos do pagamento é consultada em `GET /v1/pagamentos/{pagamento_id}/estornos`.
 
 ### 5.2. Notificações
 
-#### [US-NOT-001] Enviar e-mail
+As notificações são disparadas por **eventos**, não por pedidos de envio de e-mail feitos por outros serviços.
 
-Como o serviço de Pagamentos ou Checkout, eu quero solicitar o envio de um e-mail de confirmação, de forma que o cliente seja informado sobre o andamento do seu pedido.
+#### [US-NOT-001] Enviar e-mail a partir de eventos
 
-- [CA-NOT-01-01] A solicitação deve conter `destinatario`, `assunto` e `mensagem`.
-- [CA-NOT-01-02] Em caso de falha no envio, o sistema deve realizar no mínimo 2 tentativas (retry) antes de reportar falha definitiva.
-- [CA-NOT-01-03] O sistema deve registrar o status de cada notificação enviada (pendente, enviada, falha).
+Como o ecossistema de serviços, eu quero que um evento de negócio (ex.: `pagamento.aprovado`) resulte em e-mail ao cliente, de forma que ele seja informado sobre o andamento do seu pedido. Eventos externos entram por `POST /v1/eventos`; eventos de Pagamentos e Avaliações chegam pelo broker.
 
-#### [US-NOT-002] Disparar webhook
+- [CA-NOT-01-01] `POST /v1/eventos` recebe o envelope `{mensagem_id, tipo, versao, ocorrido_em, correlation_id, dados}` e responde `202` (inclusive para duplicata já recebida). Envelope inválido retorna `400`. A rota grava o evento no outbox e o publica no broker.
+- [CA-NOT-01-02] Cada papel só publica seus tipos: `entregador` só `entrega.*`, `loja` só `pedido.*`; `admin` publica ambos.
+- [CA-NOT-01-03] O consumidor usa inbox: mensagem com `mensagem_id` repetido é confirmada sem refazer o efeito.
+- [CA-NOT-01-04] Se existe template para o `tipo`, o e-mail do destinatário é obtido em `GET /perfis/{id}` (Equipe 1, com cache de 5 minutos) e enviado via SMTP. Tipos sem template não geram e-mail.
+- [CA-NOT-01-05] Em caso de falha, a mensagem segue as filas de retry com TTL crescente (`notificacoes.emails.retry.1` a `.5`) e, esgotadas as tentativas, vai para `notificacoes.dlq`. Falha ao buscar o perfil (Equipe 1 fora) também é reprocessada, sem perder a mensagem.
+- [CA-NOT-01-06] O status de cada notificação é registrado (`pendente`, `enviada`, `falhou`).
 
-Como o serviço de Checkout, eu quero disparar um webhook para uma URL cadastrada, de forma que sistemas externos sejam alertados sobre eventos do pedido.
+#### [US-NOT-002] Receber webhooks por inscrição
 
-- [CA-NOT-02-01] A solicitação deve conter `url` de destino e `payload` a ser enviado.
-- [CA-NOT-02-02] Em caso de falha na entrega, o sistema deve aplicar a mesma política de retry (mínimo 2 tentativas).
+Como sistema externo (de qualquer equipe), eu quero me inscrever para receber eventos por webhook, de forma que eu seja alertado sobre eventos do pedido. Rotas: `POST /v1/webhooks`, `GET /v1/webhooks`, `DELETE /v1/webhooks/{assinatura_id}` e `GET /v1/webhooks/{assinatura_id}/entregas`.
 
-#### [US-NOT-003] Consultar status de notificação
+- [CA-NOT-02-01] A inscrição contém `url` e a lista de `eventos` (padrões como `pagamento.*`). A URL exige `https`, exceto em ambiente local (`422` se inválida). O `segredo` é exibido apenas na resposta `201` da criação.
+- [CA-NOT-02-02] A entrega é um `POST` com o envelope e os cabeçalhos `X-Assinatura` (`sha256=<HMAC-SHA256(segredo, "<timestamp>.<corpo>")>`), `X-Assinatura-Timestamp`, `X-Evento-Id` e `X-Evento-Tipo`. Sucesso é qualquer `2xx` em até 5 segundos.
+- [CA-NOT-02-03] Em caso de falha, a entrega é reenfileirada em `notificacoes.webhooks.retry.1` a `.5` (TTL de 1 s, 5 s, 30 s, 2 min e 10 min). Após a quinta falha, a entrega fica com status `falhou` e a mensagem vai para `notificacoes.dlq`.
+- [CA-NOT-02-04] O histórico de tentativas fica em `GET /v1/webhooks/{assinatura_id}/entregas` (paginado; `404` se não existir, `403` se a inscrição for de outro usuário).
+- [CA-NOT-02-05] `GET /v1/webhooks` lista as inscrições do próprio `sub`; `admin` vê todas. A remoção retorna `204`.
 
-Como um serviço consumidor, eu quero consultar o status de uma notificação enviada, de forma que eu possa confirmar se ela foi entregue.
+#### [US-NOT-003] Consultar notificações
 
-- [CA-NOT-03-01] A consulta é feita pelo identificador da notificação.
-- [CA-NOT-03-02] Se a notificação não existir, o sistema deve retornar erro 404 no formato padrão.
+Como um serviço consumidor, eu quero consultar as notificações geradas para um destinatário e o status de cada uma, de forma que eu possa confirmar se foram entregues.
+
+- [CA-NOT-03-01] `GET /v1/notificacoes?destinatario_id=` lista as notificações de forma paginada; quem não é `admin` vê só as próprias.
+- [CA-NOT-03-02] **Consulta por identificador:** `GET /v1/notificacoes/{id}` foi implementada no PR #69 (no contrato: `docs/openapi/notificacoes.json`, parâmetro `notificacao_id`). Se a notificação não existir, o sistema retorna `404` no formato padrão.
 
 ### 5.3. Avaliações
 
 #### [US-AVA-001] Criar avaliação
 
-Como o usuário final (via front-end de outra equipe), eu quero avaliar um pedido entregue, de forma que eu possa expressar minha opinião sobre a experiência.
+Como cliente (via front-end de outra equipe), eu quero avaliar um pedido entregue, de forma que eu possa expressar minha opinião sobre a experiência. Rota: `POST /v1/avaliacoes`.
 
-- [CA-AVA-01-01] A solicitação deve conter `pedido_id`, `usuario_id`, `nota` (1 a 5) e `comentário`.
-- [CA-AVA-01-02] O sistema deve validar o token JWT do usuário junto à Identidade.
-- [CA-AVA-01-03] O sistema deve confirmar junto ao serviço de Checkout/Pedidos que o pedido existe e foi entregue antes de aceitar a avaliação.
-- [CA-AVA-01-04] Se o pedido não existir ou não estiver entregue, o sistema deve rejeitar a avaliação com erro 400/403 no formato padrão.
+- [CA-AVA-01-01] A solicitação contém `pedido_id`, `nota_restaurante` (1 a 5), `nota_entrega` (1 a 5, opcional) e `comentario` (até 1000 caracteres, opcional). O cliente é identificado pelo `sub` do token, não pelo corpo.
+- [CA-AVA-01-02] O sistema valida o token JWT localmente, com a chave pública (JWKS) da Identidade.
+- [CA-AVA-01-03] O sistema consulta `GET /pedidos/{id}` (Equipe 3): o pedido deve estar entregue e pertencer ao cliente do token (`403` se for de outro cliente). O `restaurante_id` é copiado do pedido.
+- [CA-AVA-01-04] Pedido não entregue retorna `422 PEDIDO_NAO_ENTREGUE`; segunda avaliação do mesmo pedido, `409 AVALIACAO_DUPLICADA`; Equipe 3 indisponível, `503`.
+- [CA-AVA-01-05] Ao registrar, o serviço grava o evento `avaliacao.registrada` no outbox.
 
-#### [US-AVA-002] Consultar avaliações de um pedido
+#### [US-AVA-002] Consultar avaliações
 
-Como um serviço consumidor (ou usuário final), eu quero consultar as avaliações de um pedido, de forma que eu possa visualizar o feedback registrado.
+Como um serviço consumidor (ou usuário final), eu quero listar avaliações e ver o resumo de um restaurante. Rotas: `GET /v1/avaliacoes?restaurante_id=&pedido_id=` e `GET /v1/resumos-avaliacoes/{restaurante_id}`.
 
-- [CA-AVA-02-01] A consulta retorna todas as avaliações associadas ao `pedido_id`.
-
-> **Nota de implementação:** a rota de consulta por pedido (`GET /avaliacoes/pedido/{pedido_id}`) deve ter um path distinto da rota de consulta de avaliação individual (`GET /avaliacoes/{id}`), para evitar colisão de rotas — ver [README do serviço de Avaliações](../services/avaliacoes/README.md).
+- [CA-AVA-02-01] A consulta de avaliações de um pedido é um filtro da listagem (`?pedido_id=`), paginada, e não uma rota separada.
+- [CA-AVA-02-02] O resumo retorna `restaurante_id`, `media_restaurante`, `media_entrega` e `total`.
 
 #### [US-AVA-003] Consultar avaliação específica
 
-Como um serviço consumidor, eu quero consultar os detalhes de uma avaliação específica, de forma que eu possa exibir seu conteúdo completo.
+Como um serviço consumidor, eu quero consultar os detalhes de uma avaliação específica, de forma que eu possa exibir seu conteúdo completo. Rota: `GET /v1/avaliacoes/{avaliacao_id}`.
 
-- [CA-AVA-03-01] Se a avaliação não existir, o sistema deve retornar erro 404 no formato padrão.
+- [CA-AVA-03-01] Se a avaliação não existir, o sistema deve retornar `404` no formato padrão.
 
-#### [US-AVA-004] Abrir disputa
+#### [US-AVA-004] Abrir e resolver disputa
 
-Como o usuário final, eu quero abrir uma disputa sobre uma avaliação, de forma que eu possa contestar uma nota ou comentário que considero injusto.
+Como cliente, eu quero abrir uma disputa sobre um pedido, de forma que eu possa contestar o que recebi e, se procedente, ser reembolsado. A disputa é um recurso próprio. Rotas: `POST /v1/disputas`, `GET /v1/disputas?status=`, `GET /v1/disputas/{disputa_id}` e `PATCH /v1/disputas/{disputa_id}`.
 
-- [CA-AVA-04-01] A disputa deve estar associada a uma avaliação existente.
-- [CA-AVA-04-02] O sistema deve registrar a disputa com informações de rastreabilidade (data/hora, autor).
+- [CA-AVA-04-01] A abertura contém `pedido_id`, `motivo` (`item_faltando`, `pedido_errado`, `nao_entregue` ou `qualidade`), `descricao` e `valor_solicitado_centavos`.
+- [CA-AVA-04-02] Deve existir pagamento `aprovado` ou `parcialmente_estornado` do pedido (`422 PAGAMENTO_NAO_ENCONTRADO`), consultado em `GET /v1/pagamentos?pedido_id=`. Só uma disputa não-terminal por pedido (`409 DISPUTA_JA_ABERTA`). O valor solicitado não pode passar do saldo estornável do pagamento (`422 VALOR_EXCEDE_PAGO`).
+- [CA-AVA-04-03] A decisão é do `admin`, por `PATCH` com `status` (`procedente` ou `improcedente`), `valor_aprovado_centavos` (opcional) e `parecer`. Não-admin recebe `403`; transição inválida, `409 TRANSICAO_INVALIDA`.
+- [CA-AVA-04-04] Disputa procedente aciona a saga: status `estorno_pendente`, chamada a `POST /v1/pagamentos/{pagamento_id}/estornos` com `Idempotency-Key: disputa-{disputa_id}`. Sucesso leva a `resolvida` (`200`); falha transitória mantém `estorno_pendente` (`202`) e o worker repete até 10 vezes; falha definitiva leva a `estorno_falhou`.
+- [CA-AVA-04-05] O serviço publica via outbox `disputa.aberta`, `disputa.resolvida` (procedente ou improcedente) e `disputa.estorno_falhou`.
+- [CA-AVA-04-06] A listagem do `cliente` mostra só as suas disputas.
 
 ---
 
@@ -258,8 +305,9 @@ Como o usuário final, eu quero abrir uma disputa sobre uma avaliação, de form
 
 Como consumidor dos serviços, eu quero que apenas usuários autenticados executem operações sensíveis, de forma que a integridade financeira e a privacidade dos dados sejam preservadas.
 
-- [CA-SEG-01] Toda operação de escrita (criar pagamento, estornar, criar avaliação, abrir disputa) deve validar o token JWT junto ao serviço de Identidade.
-- [CA-SEG-02] Dados sensíveis (valores, métodos de pagamento) não devem ser expostos em logs.
+- [CA-SEG-01] Todas as rotas, exceto `/saude/*` e `/docs`, exigem `Authorization: Bearer <jwt>`. O token é validado localmente com a chave pública (JWKS) da Identidade, mantida em cache; se a Identidade estiver fora, vale a última chave conhecida.
+- [CA-SEG-02] Dados sensíveis (número de cartão, CVV, titular, validade, token JWT e segredo de webhook) não aparecem em logs.
+- [CA-SEG-03] A autorização considera o papel do token (`cliente`, `loja`, `entregador`, `admin`, `servico`). O papel `servico` só é aceito nas rotas que o declaram.
 
 ### 6.2. [RNF-002] Desempenho
 
@@ -267,28 +315,35 @@ Como consumidor dos serviços, eu quero que apenas usuários autenticados execut
 
 ### 6.3. [RNF-003] Confiabilidade e Resiliência
 
-- [CA-CONF-01] Se uma dependência externa (Identidade, Checkout, ou entre os próprios serviços do grupo) estiver indisponível, o serviço não pode encerrar o processo — deve capturar a falha e retornar um erro amigável ao chamador.
-- [CA-CONF-02] Falhas de envio de notificação devem ser reprocessadas automaticamente (mínimo 2 tentativas) antes de serem reportadas como falha definitiva.
+- [CA-CONF-01] Se uma dependência externa (Identidade, Checkout/Pedidos, ou entre os próprios serviços do grupo) estiver indisponível, o serviço não pode encerrar o processo: captura a falha e responde `503 DEPENDENCIA_INDISPONIVEL`.
+- [CA-CONF-02] Falhas de envio de e-mail e de entrega de webhook são reprocessadas por filas de retry com TTL e, esgotadas as tentativas, vão para a DLQ (`notificacoes.dlq`).
+- [CA-CONF-03] **Outbox:** todo serviço que publica eventos os grava na mesma transação da mudança de estado; um relay publica depois. Com o broker fora, as APIs continuam operando e o outbox acumula.
+- [CA-CONF-04] **Inbox:** todo consumidor grava o `mensagem_id` na mesma transação do efeito; mensagem repetida é confirmada sem refazer o efeito.
+- [CA-CONF-05] **Circuit breaker** por dependência (abre após 5 falhas consecutivas, meio-aberto após 30 s) e **retry** em GET e em POST com `Idempotency-Key`, nunca em 4xx.
+- [CA-CONF-06] A prontidão (`GET /saude/pronto`) verifica banco e broker, não as outras equipes; `GET /saude/vivo` indica apenas que o processo está de pé.
 
 ### 6.4. [RNF-004] Padrões de dados e formato
 
-- [CA-PAD-01] Toda resposta de erro deve seguir o formato `{"erro": true, "mensagem": "Detalhes da falha"}`, acompanhada do código HTTP correto.
-- [CA-PAD-02] Toda data/hora trafegada deve seguir o padrão ISO 8601 (ex.: `2026-08-24T14:30:00Z`).
-- [CA-PAD-03] Todo valor financeiro deve trafegar como número inteiro representando centavos (nunca ponto flutuante).
+- [CA-PAD-01] Toda resposta de erro segue o formato `{"erro": true, "mensagem": "...", "codigo": "PAGAMENTO_RECUSADO", "correlation_id": "..."}`, acompanhada do código HTTP correto. `erro` e `mensagem` são os campos obrigatórios do documento da disciplina; `codigo` e `correlation_id` são adicionais e não quebram consumidores. `500` nunca expõe stack trace.
+- [CA-PAD-02] Toda data/hora trafegada deve seguir o padrão ISO 8601 em UTC (ex.: `2026-10-14T14:30:00Z`).
+- [CA-PAD-03] Todo valor financeiro deve trafegar como número inteiro representando centavos, em campos `*_centavos` (nunca ponto flutuante).
+- [CA-PAD-04] Rotas em português, substantivos no plural e prefixo `/v1`; ações são sub-recursos (`/estornos`) ou `PATCH` de status. JSON em `snake_case`.
+- [CA-PAD-05] **Idempotência:** `Idempotency-Key` é obrigatório nos `POST` com efeito financeiro (`/v1/pagamentos` e `/v1/pagamentos/{pagamento_id}/estornos`).
+- [CA-PAD-06] **Correlação:** `X-Correlation-ID` é propagado em toda chamada e todo evento, e gerado quando ausente; `traceparent` (W3C) também é propagado.
 
 ### 6.5. [RNF-005] Disponibilidade
 
-- [CA-DISP-01] Os serviços devem poder ser inicializados de forma independente via `docker compose up`, sem exigir configuração manual adicional.
+- [CA-DISP-01] Os serviços devem poder ser inicializados de forma independente via `docker compose up -d --build`, sem exigir configuração manual adicional (os mocks sobem com `--profile mocks`).
 
 ### 6.6. [RNF-006] Hardware e Software
 
-- [CA-HW-01] Cada serviço deve ser conteinerizado (Docker), com `Dockerfile` e `docker-compose.yml` próprios.
-- [CA-HW-02] Cada serviço deve rodar em porta fixa e distinta: Pagamentos (8051), Notificações (8052), Avaliações (8053).
+- [CA-HW-01] Cada serviço deve ser conteinerizado (Docker), com `Dockerfile` próprio; o `compose.yaml` raiz orquestra os três.
+- [CA-HW-02] Cada serviço deve rodar em porta fixa e distinta: Pagamentos (8013), Notificações (8014), Avaliações (8015).
 - [CA-HW-03] Cada serviço deve utilizar seu próprio banco de dados PostgreSQL, isolado dos demais.
 
 ### 6.7. [RNF-007] Cobertura de Testes
 
-- [CA-TEST-01] Cada serviço deve manter cobertura mínima de 75% de testes automatizados (unitários e de integração).
+- [CA-TEST-01] Cada serviço deve manter cobertura mínima de 75% de testes automatizados (unitários, de integração e de API), garantida no CI.
 
 ---
 
@@ -298,23 +353,23 @@ Esta seção detalha os requisitos específicos de comunicação entre os servi�
 
 ### 7.1. [RI-001] Contrato de API documentado
 
-Todos os endpoints expostos pelos 3 serviços devem estar documentados via Swagger/OpenAPI, disponível em `/docs` de cada serviço, permitindo que outras equipes consumam mocks antes da implementação real estar pronta.
+Todos os endpoints HTTP expostos pelos 3 serviços estão documentados em OpenAPI (`docs/openapi/*.json`, também em `/docs` de cada serviço) e os eventos em AsyncAPI (`docs/asyncapi/*.json`). O CI verifica que os contratos gerados são iguais aos de `docs/`.
 
 ### 7.2. [RI-002] Validação de identidade centralizada
 
-Pagamentos, Notificações e Avaliações não devem implementar lógica própria de autenticação — toda validação de token JWT deve ser delegada ao serviço de Identidade (`http://localhost:8011`), evitando duplicação de regras de autenticação entre equipes.
+Pagamentos, Notificações e Avaliações não emitem tokens nem mantêm usuários: o token é emitido pela Identidade (Equipe 1). A validação é feita localmente com a chave pública obtida do JWKS da Identidade, com cache e TTL. Se a Identidade não expuser JWKS, um adapter alternativo usa o endpoint de validação dela (decisão pendente, issue #38). Chamadas feitas por workers, sem usuário na origem, usam o token de serviço interno da equipe.
 
-### 7.3. [RI-003] Comunicação exclusivamente via HTTP
+### 7.3. [RI-003] Integração síncrona via HTTP e assíncrona via eventos
 
-Não é permitida comunicação em memória, filas compartilhadas ou acesso direto a banco de dados de outro serviço (mesmo dentro do próprio grupo). Toda troca de dados entre Pagamentos, Notificações, Avaliações e os demais serviços da plataforma deve ocorrer por chamadas HTTP/REST síncronas.
+A integração síncrona com outros serviços (Equipes 1, 3 e 4 e entre Pagamentos, Notificações e Avaliações) é feita por HTTP/REST. Eventos são publicados no RabbitMQ (exchange `financeiro.eventos`, tipo topic) apenas entre os serviços da Equipe 5; as demais equipes publicam eventos por `POST /v1/eventos` e assinam webhooks, sem acessar o broker. Continuam proibidos a comunicação em memória e o acesso direto ao banco de outro serviço.
 
 ### 7.4. [RI-004] Timeout e tolerância a falhas
 
-Toda chamada HTTP a um serviço externo (Identidade, Checkout, ou entre serviços do próprio grupo) deve ter um timeout configurado, e sua falha (timeout, conexão recusada, erro 5xx) deve ser tratada e convertida em uma resposta de erro amigável ao chamador original, nunca em uma exceção não tratada que derrube o processo.
+Toda chamada HTTP a um serviço externo (Identidade, Checkout/Pedidos, ou entre serviços do grupo) tem timeout de 1 s para conectar e 3 s para ler, com prazo total de 8 s por chamada lógica, retry e circuit breaker. Falhas (timeout, conexão recusada, `5xx`) são convertidas em `503 DEPENDENCIA_INDISPONIVEL`, nunca em uma exceção não tratada que derrube o processo.
 
 ### 7.5. [RI-005] Rastreabilidade de integração
 
-Cada chamada recebida de ou enviada para outro serviço deve ser registrada em log no console, permitindo a verificação visual (pelo professor ou pela equipe) de que a integração de fato ocorreu — por exemplo, o serviço de Pagamentos imprimindo no console que está acionando o serviço de Notificações.
+Toda chamada HTTP de saída gera uma linha de log antes e outra depois (dependência, método, rota, status e duração), e todo evento publicado ou consumido gera uma linha com `tipo` e `mensagem_id`, informando se a inbox o considerou novo ou duplicado. Todas as linhas levam o `correlation_id`; os traces seguem para o Jaeger.
 
 ### 7.6. [RI-006] Isolamento de bancos de dados
 
@@ -322,7 +377,11 @@ Cada serviço mantém seu próprio banco de dados PostgreSQL, sem cruzamento de 
 
 ### 7.7. [RI-007] Orquestração local do grupo
 
-O `docker-compose.yml` raiz do monorepo `delivery-financeiro` deve subir os 3 serviços do grupo e seus respectivos bancos de dados em uma rede Docker compartilhada, permitindo que Pagamentos, Notificações e Avaliações se comuniquem entre si pelo nome do container, sem expor essa comunicação interna à rede externa desnecessariamente.
+O `compose.yaml` raiz do monorepo `delivery-financeiro` sobe os 3 serviços, seus workers, seus bancos, o RabbitMQ, o Mailpit e o Jaeger, e, com `--profile mocks`, os mocks das Equipes 1, 3 e 4. Os serviços se comunicam entre si pelo nome do container.
+
+### 7.8. [RI-008] Alinhamento com as outras equipes (pendente)
+
+Endereços, portas e detalhes de contrato com a Equipe 1 (JWKS, `GET /perfis/{id}`, credencial de serviço) dependem da issue #38; os com as Equipes 3 e 4 (`GET /pedidos/{id}`, chamada a `POST /v1/pagamentos`, publicação em `POST /v1/eventos`), da issue #39. Ambas estão abertas e os valores acima seguem a especificação (seção 12) até o alinhamento: **a alinhar**.
 
 ---
 
@@ -332,38 +391,50 @@ O `docker-compose.yml` raiz do monorepo `delivery-financeiro` deve subir os 3 se
 
 | Campo | Descrição |
 |---|---|
-| Ator principal | Serviço de Checkout |
-| Ator secundário | Serviço de Identidade, Serviço de Notificações |
-| Pré-condições | O pedido foi validado pelo Checkout e está pronto para cobrança |
-| Fluxo principal | 1. Checkout envia `pedido_id`, `metodo_pagamento` e `valor` (centavos) com token JWT do usuário.<br>2. Pagamentos valida o token junto à Identidade.<br>3. Pagamentos registra a transação e define o status.<br>4. Pagamentos aciona Notificações para envio de confirmação.<br>5. Pagamentos retorna o status da transação ao Checkout. |
-| Fluxos de exceção | FE01 — Token inválido: retorna erro 401 no formato padrão.<br>FE02 — Identidade indisponível: retorna erro 503 amigável, sem derrubar o processo.<br>FE03 — Campos obrigatórios ausentes: retorna erro 400. |
-| Pós-condições | A transação é registrada com status aprovado ou recusado; uma notificação é disparada em caso de aprovação. |
-| Regras de negócio | RN01: valor sempre em centavos (inteiro). RN02: token deve ser validado antes de qualquer escrita. |
+| Ator principal | Serviço de Checkout (Equipe 3) |
+| Ator secundário | Serviço de Identidade (JWKS), serviço de Pedidos (Equipe 3) |
+| Pré-condições | O pedido existe, pertence ao cliente do token e está pronto para cobrança |
+| Fluxo principal | 1. Checkout chama `POST /v1/pagamentos` com `pedido_id`, `metodo`, `Idempotency-Key` e o token JWT do usuário.<br>2. Pagamentos valida o token localmente (JWKS).<br>3. Pagamentos consulta o pedido (`GET /pedidos/{id}`) e obtém o valor.<br>4. Pagamentos aplica o antifraude e o gateway simulado, e registra o pagamento.<br>5. Pagamentos grava o evento no outbox e retorna `201` ao Checkout.<br>6. O relay publica `pagamento.aprovado`, que Notificações consome. |
+| Fluxos de exceção | FE01 — Token inválido: `401` no formato padrão.<br>FE02 — Pedido ou gateway indisponível: `503 DEPENDENCIA_INDISPONIVEL`, sem derrubar o processo.<br>FE03 — Campos inválidos ou `Idempotency-Key` ausente: `400`/`422`.<br>FE04 — Pagamento recusado: `409 PAGAMENTO_RECUSADO`, com tentativa persistida.<br>FE05 — Pedido já pago: `409 PEDIDO_JA_PAGO`. |
+| Pós-condições | O pagamento é registrado com status aprovado ou recusado; o evento correspondente fica no outbox. |
+| Regras de negócio | RN01: valor sempre em centavos (inteiro), lido do pedido. RN02: token validado antes de qualquer escrita. RN03: um pagamento aprovado por pedido. |
 | Rastreamento | [US-PAG-001] |
 
-### [UC-NOT-001] Enviar Notificação de Confirmação
+### [UC-NOT-001] Enviar Notificação a partir de Evento
 
 | Campo | Descrição |
 |---|---|
-| Ator principal | Serviço de Pagamentos (ou Checkout) |
-| Ator secundário | Serviço de Identidade |
+| Ator principal | Serviço publicador do evento (Pagamentos, Avaliações, Checkout ou Logística) |
+| Ator secundário | Serviço de Identidade (Equipe 1) |
 | Pré-condições | Um evento que exige notificação ocorreu (ex.: pagamento aprovado) |
-| Fluxo principal | 1. Serviço solicitante envia `destinatario`, `assunto` e `mensagem`.<br>2. Notificações registra a solicitação com status "pendente".<br>3. Notificações tenta o envio.<br>4. Notificações atualiza o status para "enviada" ou tenta novamente em caso de falha (mínimo 2 tentativas). |
-| Fluxos de exceção | FE01 — Falha após todas as tentativas: status é marcado como "falha", sem interromper o serviço solicitante. |
+| Fluxo principal | 1. O evento chega pelo broker ou por `POST /v1/eventos`.<br>2. Notificações verifica a inbox; se o `mensagem_id` é novo, registra a notificação com status "pendente".<br>3. Notificações busca o e-mail do destinatário em `GET /perfis/{id}` e envia o e-mail.<br>4. Notificações atualiza o status para "enviada" e, para cada inscrição de webhook que casa com o tipo, enfileira a entrega. |
+| Fluxos de exceção | FE01 — Falha no envio: a mensagem segue as filas de retry com TTL; após esgotar, vai para a DLQ e o status é "falhou", sem interromper quem publicou.<br>FE02 — Evento duplicado: confirmado sem refazer o efeito. |
 | Pós-condições | A notificação é registrada com seu status final. |
-| Rastreamento | [US-NOT-001] |
+| Rastreamento | [US-NOT-001], [US-NOT-002] |
 
 ### [UC-AVA-001] Avaliar Pedido Entregue
 
 | Campo | Descrição |
 |---|---|
-| Ator principal | Usuário final (via front-end de outra equipe) |
-| Ator secundário | Serviço de Identidade, Serviço de Checkout/Pedidos |
-| Pré-condições | O usuário está autenticado e o pedido foi marcado como entregue |
-| Fluxo principal | 1. Usuário envia `pedido_id`, `usuario_id`, `nota` e `comentário`.<br>2. Avaliações valida o token junto à Identidade.<br>3. Avaliações confirma junto ao Checkout que o pedido existe e foi entregue.<br>4. Avaliações registra a avaliação. |
-| Fluxos de exceção | FE01 — Pedido não entregue: retorna erro 403 no formato padrão.<br>FE02 — Checkout indisponível: retorna erro 503 amigável. |
-| Pós-condições | A avaliação é registrada e associada ao pedido e ao usuário. |
+| Ator principal | Cliente (via front-end de outra equipe) |
+| Ator secundário | Serviço de Identidade, serviço de Checkout/Pedidos |
+| Pré-condições | O cliente está autenticado e o pedido foi marcado como entregue |
+| Fluxo principal | 1. O cliente chama `POST /v1/avaliacoes` com `pedido_id`, `nota_restaurante`, `nota_entrega` e `comentario`.<br>2. Avaliações valida o token localmente (JWKS).<br>3. Avaliações consulta `GET /pedidos/{id}` e confirma que o pedido é do cliente e foi entregue.<br>4. Avaliações registra a avaliação e publica `avaliacao.registrada` via outbox. |
+| Fluxos de exceção | FE01 — Pedido não entregue: `422 PEDIDO_NAO_ENTREGUE`.<br>FE02 — Pedido de outro cliente: `403`.<br>FE03 — Avaliação duplicada: `409 AVALIACAO_DUPLICADA`.<br>FE04 — Checkout indisponível: `503` amigável. |
+| Pós-condições | A avaliação é registrada e associada ao pedido e ao cliente. |
 | Rastreamento | [US-AVA-001] |
+
+### [UC-AVA-002] Resolver Disputa com Estorno
+
+| Campo | Descrição |
+|---|---|
+| Ator principal | Administrador |
+| Ator secundário | Serviço de Pagamentos |
+| Pré-condições | Existe disputa aberta sobre um pedido com pagamento aprovado ou parcialmente estornado |
+| Fluxo principal | 1. O admin chama `PATCH /v1/disputas/{disputa_id}` com `status = procedente`.<br>2. Avaliações marca `estorno_pendente`.<br>3. Avaliações chama `POST /v1/pagamentos/{pagamento_id}/estornos` com `Idempotency-Key: disputa-{disputa_id}`.<br>4. Em caso de sucesso, a disputa vai para `resolvida` e `disputa.resolvida` é publicado. |
+| Fluxos de exceção | FE01 — Pagamentos indisponível: resposta `202`, disputa permanece `estorno_pendente` e o worker repete até 10 vezes.<br>FE02 — Recusa definitiva ou tentativas esgotadas: `estorno_falhou` e evento `disputa.estorno_falhou`.<br>FE03 — Não-admin: `403`. |
+| Pós-condições | A disputa termina em `resolvida`, `improcedente` ou `estorno_falhou`. |
+| Rastreamento | [US-AVA-004], [US-PAG-003] |
 
 ---
 
@@ -373,25 +444,25 @@ O `docker-compose.yml` raiz do monorepo `delivery-financeiro` deve subir os 3 se
 
 | ID | Descrição | Prioridade | Dependências |
 |---|---|---|---|
-| US-PAG-001 | Processar pagamento | Alta | Identidade (Eq. 1), Notificações |
-| US-PAG-002 | Consultar status de transação | Alta | US-PAG-001 |
+| US-PAG-001 | Processar pagamento | Alta | Identidade (Eq. 1), Pedidos (Eq. 3) |
+| US-PAG-002 | Consultar pagamento | Alta | US-PAG-001 |
 | US-PAG-003 | Estornar pagamento | Média | US-PAG-001 |
-| US-NOT-001 | Enviar e-mail | Alta | Identidade (Eq. 1) |
-| US-NOT-002 | Disparar webhook | Média | NDA |
-| US-NOT-003 | Consultar status de notificação | Média | US-NOT-001, US-NOT-002 |
-| US-AVA-001 | Criar avaliação | Alta | Identidade (Eq. 1), Checkout (Eq. 3) |
-| US-AVA-002 | Consultar avaliações de um pedido | Alta | US-AVA-001 |
+| US-NOT-001 | Enviar e-mail a partir de eventos | Alta | Identidade (Eq. 1) |
+| US-NOT-002 | Receber webhooks por inscrição | Média | NDA |
+| US-NOT-003 | Consultar notificações | Média | US-NOT-001 |
+| US-AVA-001 | Criar avaliação | Alta | Identidade (Eq. 1), Pedidos (Eq. 3) |
+| US-AVA-002 | Consultar avaliações e resumo | Alta | US-AVA-001 |
 | US-AVA-003 | Consultar avaliação específica | Média | US-AVA-001 |
-| US-AVA-004 | Abrir disputa | Média | US-AVA-001 |
+| US-AVA-004 | Abrir e resolver disputa | Média | US-AVA-001, US-PAG-003 |
 
 ### Requisitos Não Funcionais
 
 | ID | Descrição | Prioridade | Dependências |
 |---|---|---|---|
-| RNF-001 | Segurança (validação JWT) | Alta | Identidade (Eq. 1) |
+| RNF-001 | Segurança (JWT validado via JWKS) | Alta | Identidade (Eq. 1) |
 | RNF-002 | Desempenho (resposta ≤ 2s) | Alta | NDA |
-| RNF-003 | Confiabilidade e resiliência | Alta | NDA |
-| RNF-004 | Padrões de dados e formato | Alta | NDA |
+| RNF-003 | Confiabilidade e resiliência (outbox, inbox, retry, DLQ) | Alta | NDA |
+| RNF-004 | Padrões de dados e formato (erro, idempotência, correlação) | Alta | NDA |
 | RNF-005 | Disponibilidade | Média | NDA |
 | RNF-006 | Hardware e software (Docker, portas, bancos isolados) | Alta | NDA |
 | RNF-007 | Cobertura de testes ≥ 75% | Alta | NDA |
@@ -400,10 +471,35 @@ O `docker-compose.yml` raiz do monorepo `delivery-financeiro` deve subir os 3 se
 
 | ID | Descrição | Prioridade | Dependências |
 |---|---|---|---|
-| RI-001 | Contrato de API documentado (Swagger) | Alta | NDA |
-| RI-002 | Validação de identidade centralizada | Alta | Identidade (Eq. 1) |
-| RI-003 | Comunicação exclusivamente via HTTP | Alta | NDA |
+| RI-001 | Contrato de API documentado (OpenAPI e AsyncAPI) | Alta | NDA |
+| RI-002 | Validação de identidade centralizada (JWKS) | Alta | Identidade (Eq. 1) |
+| RI-003 | Integração síncrona via HTTP e assíncrona via eventos | Alta | NDA |
 | RI-004 | Timeout e tolerância a falhas | Alta | RNF-003 |
-| RI-005 | Rastreabilidade de integração (logs) | Média | NDA |
+| RI-005 | Rastreabilidade de integração (logs e traces) | Média | NDA |
 | RI-006 | Isolamento de bancos de dados | Alta | NDA |
-| RI-007 | Orquestração local do grupo via docker-compose | Média | RNF-006 |
+| RI-007 | Orquestração local do grupo via compose | Média | RNF-006 |
+| RI-008 | Alinhamento com as outras equipes (a alinhar) | Alta | Issues #38 e #39 |
+
+---
+
+## 10. Rastreabilidade: história, rota e PR
+
+Os PRs abaixo são os que implementaram (ou corrigiram) cada serviço, conforme `git log` e a lista de PRs mesclados do repositório. As rotas conferem com `docs/openapi/*.json`, exceto onde indicado.
+
+| História | Rota(s) | PR |
+|---|---|---|
+| US-PAG-001 | `POST /v1/pagamentos` | #22 (implementação); #25 (correções da revisão) |
+| US-PAG-002 | `GET /v1/pagamentos/{pagamento_id}`, `GET /v1/pagamentos` | #22; #25 |
+| US-PAG-003 | `POST /v1/pagamentos/{pagamento_id}/estornos`, `GET /v1/pagamentos/{pagamento_id}/estornos` | #22; #25 |
+| US-NOT-001 | `POST /v1/eventos` (e consumo de eventos do broker) | #23 (implementação); #26 (correções da revisão); #63 (recusa de surrogate solto no envelope) |
+| US-NOT-002 | `POST /v1/webhooks`, `GET /v1/webhooks`, `DELETE /v1/webhooks/{assinatura_id}`, `GET /v1/webhooks/{assinatura_id}/entregas` | #23; #26 |
+| US-NOT-003 | `GET /v1/notificacoes` | #23; #26 |
+| US-NOT-003 | `GET /v1/notificacoes/{id}` | #69 |
+| US-AVA-001 | `POST /v1/avaliacoes` | #21 |
+| US-AVA-002 | `GET /v1/avaliacoes`, `GET /v1/resumos-avaliacoes/{restaurante_id}` | #21 |
+| US-AVA-003 | `GET /v1/avaliacoes/{avaliacao_id}` | #21 |
+| US-AVA-004 | `POST /v1/disputas`, `GET /v1/disputas`, `GET /v1/disputas/{disputa_id}`, `PATCH /v1/disputas/{disputa_id}` | #21 (disputas e saga); #55 (teto da disputa passa a ser o saldo estornável) |
+
+Complementos que afetam várias histórias: especificação de design (#19), fundação do monorepo e `libs/plataforma` (#20), correção de erros 500 em paginação e envelope de evento (#61), coleção Postman do fluxo completo (#56) e job E2E no CI (#59).
+
+**A confirmar:** a atribuição de cada rota a um PR específico foi feita a partir dos títulos dos PRs e do histórico; ela deve ser conferida contra o diff de cada PR antes da entrega final.
