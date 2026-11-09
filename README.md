@@ -42,6 +42,9 @@ docker compose --profile mocks down -v            # derruba tudo
 
 Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: application/json' -d '{"sub":"cliente-1","papel":"cliente"}'`.
 
+A coleção Postman com o fluxo completo da demo fica em [`docs/postman/`](docs/postman/). Para rodar
+no terminal: `npx newman run docs/postman/delivery-financeiro.postman_collection.json -e docs/postman/local.postman_environment.json`.
+
 ### Produção
 
 A produção roda numa VM do Azure for Students, com `infra/compose.prod.yaml` e o Caddy na frente
