@@ -15,6 +15,7 @@ from notificacoes.dominio.assinatura import AssinaturaWebhook
 from notificacoes.dominio.erros import TransicaoInvalida
 
 TAMANHO_MAXIMO_ERRO = 500
+MOTIVO_CANCELAMENTO = "Assinatura removida antes da entrega."
 
 
 class Canal(StrEnum):
@@ -95,6 +96,15 @@ class Notificacao:
     @property
     def pendente(self) -> bool:
         return self.status is StatusNotificacao.PENDENTE
+
+    @property
+    def desistiu(self) -> bool:
+        """Falhou por erro de entrega (e não por cancelamento): a DLQ é devida."""
+        return (
+            self.status is StatusNotificacao.FALHOU
+            and self.ultimo_erro is not None
+            and self.ultimo_erro != MOTIVO_CANCELAMENTO
+        )
 
     def registrar_envio(self, *, agora: datetime, destino: str | None = None) -> None:
         self._exigir_pendente()

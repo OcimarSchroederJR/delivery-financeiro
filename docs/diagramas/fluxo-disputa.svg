@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 804" width="1100" height="804" role="img" aria-label="Fluxo 2 · Avaliação e disputa com estorno">
+<title>Fluxo 2 · Avaliação e disputa com estorno</title>
+<defs><marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/></marker></defs>
+<rect width="1100" height="804" fill="#ffffff"/>
+<text x="20" y="30" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#111827">Fluxo 2 · Avaliação e disputa com estorno</text>
+<line x1="110.0" y1="104" x2="110.0" y2="714" stroke="#9ca3af" stroke-dasharray="4 5"/>
+<rect x="32.0" y="54" width="156" height="50" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="110.0" y="84.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Cliente</text>
+<line x1="286.0" y1="104" x2="286.0" y2="714" stroke="#9ca3af" stroke-dasharray="4 5"/>
+<rect x="208.0" y="54" width="156" height="50" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="286.0" y="76.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Avaliações</text>
+<text x="286.0" y="95.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">8015</text>
+<line x1="462.0" y1="104" x2="462.0" y2="714" stroke="#9ca3af" stroke-dasharray="4 5"/>
+<rect x="384.0" y="54" width="156" height="50" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="462.0" y="84.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Admin</text>
+<line x1="638.0" y1="104" x2="638.0" y2="714" stroke="#9ca3af" stroke-dasharray="4 5"/>
+<rect x="560.0" y="54" width="156" height="50" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="638.0" y="76.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Pagamentos</text>
+<text x="638.0" y="95.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">8013</text>
+<line x1="814.0" y1="104" x2="814.0" y2="714" stroke="#9ca3af" stroke-dasharray="4 5"/>
+<rect x="736.0" y="54" width="156" height="50" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="814.0" y="76.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Eq.3 · Pedidos</text>
+<text x="814.0" y="95.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">checkout</text>
+<line x1="990.0" y1="104" x2="990.0" y2="714" stroke="#9ca3af" stroke-dasharray="4 5"/>
+<rect x="912.0" y="54" width="156" height="50" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="990.0" y="76.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">RabbitMQ</text>
+<text x="990.0" y="95.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">→ Notificações</text>
+<path d="M110.0,150 L286.0,150" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="130.16" y="131" width="135.68" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="198.0" y="143" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">POST /v1/avaliacoes</text>
+<path d="M286.0,196 L814.0,196" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="435.12" y="177" width="229.76000000000002" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="550.0" y="189" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">GET /pedidos/{id} (foi entregue?)</text>
+<path d="M286.0,242 L990.0,242" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="539.92" y="223" width="196.16000000000003" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="638.0" y="235" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">outbox: avaliacao.registrada</text>
+<rect x="156.0" y="272" width="788.0" height="34" rx="6" fill="#fef9c3" stroke="#ca8a04"/>
+<text x="550.0" y="293" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">DISPUTA: o cliente reclama de um pedido já pago</text>
+<path d="M110.0,340 L286.0,340" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="136.88" y="321" width="122.24000000000001" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="198.0" y="333" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">POST /v1/disputas</text>
+<path d="M286.0,386 L638.0,386" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="360.56" y="367" width="202.88000000000002" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="462.0" y="379" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">GET /v1/pagamentos?pedido_id=</text>
+<path d="M286.0,432 L990.0,432" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="560.08" y="413" width="155.84" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="638.0" y="425" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">outbox: disputa.aberta</text>
+<path d="M462.0,478 L286.0,478" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="255.76" y="459" width="236.48000000000002" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="374.0" y="471" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">PATCH /v1/disputas/{id} procedente</text>
+<path d="M286.0,524 L638.0,524" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="330.32" y="505" width="263.36" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="462.0" y="517" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">POST …/estornos (Idempotency-Key fixa)</text>
+<path d="M638.0,570 L990.0,570" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="719.28" y="551" width="189.44000000000003" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="814.0" y="563" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">outbox: pagamento.estornado</text>
+<rect x="156.0" y="600" width="788.0" height="34" rx="6" fill="#fef9c3" stroke="#ca8a04"/>
+<text x="550.0" y="621" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">ok: resolvida · falha transitória: 202 + retentativa (até 10x) · definitiva: estorno_falhou</text>
+<path d="M286.0,668 L990.0,668" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="482.79999999999995" y="649" width="310.40000000000003" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="638.0" y="661" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#111827">outbox: disputa.resolvida (ou estorno_falhou)</text>
+<text x="20" y="734" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">Legenda</text>
+<path d="M20,752 L60,752" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<text x="70" y="756" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">chamada HTTP (síncrona)</text>
+<path d="M20,772 L60,772" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<text x="70" y="776" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">evento assíncrono (RabbitMQ)</text>
+<path d="M20,792 L60,792" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ag)"/>
+<text x="70" y="796" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">validação do JWT / resposta</text>
+</svg>

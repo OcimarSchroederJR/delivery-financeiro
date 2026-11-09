@@ -1,5 +1,5 @@
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import httpx
@@ -116,9 +116,51 @@ async def test_envelope_invalido_400(api: httpx.AsyncClient, bearer: Bearer, cor
     assert erro["correlation_id"]
 
 
-async def test_envelope_grande_400(api: httpx.AsyncClient, bearer: Bearer) -> None:
+async def test_envelope_grande_413(api: httpx.AsyncClient, bearer: Bearer) -> None:
     corpo = _envelope(tipo="pedido.criado", dados={"texto": "a" * 70_000})
     resposta = await api.post("/v1/eventos", json=corpo, headers=bearer("l1", "loja"))
+    erro = resposta.json()
+    assert resposta.status_code == 413
+    assert (erro["erro"], erro["codigo"]) == (True, "ENVELOPE_GRANDE_DEMAIS")
+    assert erro["correlation_id"]
+
+
+async def test_content_length_acima_do_limite_413_sem_ler_o_corpo(
+    api: httpx.AsyncClient, bearer: Bearer
+) -> None:
+    resposta = await api.post(
+        "/v1/eventos",
+        content=b"{}",
+        headers={
+            **bearer("l1", "loja"),
+            "Content-Type": "application/json",
+            "Content-Length": str(64 * 1024 + 1),
+        },
+    )
+    assert resposta.status_code == 413
+
+
+async def test_corpo_em_stream_sem_content_length_acima_do_limite_413(
+    api: httpx.AsyncClient, bearer: Bearer
+) -> None:
+    async def pedacos() -> AsyncIterator[bytes]:
+        for _ in range(70):
+            yield b"a" * 1024
+
+    resposta = await api.post(
+        "/v1/eventos",
+        content=pedacos(),
+        headers={**bearer("l1", "loja"), "Content-Type": "application/json"},
+    )
+    assert resposta.status_code == 413
+
+
+async def test_envelope_no_limite_exato_nao_da_413(api: httpx.AsyncClient, bearer: Bearer) -> None:
+    resposta = await api.post(
+        "/v1/eventos",
+        content=b" " * (64 * 1024),
+        headers={**bearer("l1", "loja"), "Content-Type": "application/json"},
+    )
     assert resposta.status_code == 400
 
 
@@ -128,7 +170,7 @@ async def test_openapi_documenta_envelope_e_status(api: httpx.AsyncClient) -> No
     assert {"mensagem_id", "tipo", "ocorrido_em", "correlation_id", "dados"} <= set(
         esquema["properties"]
     )
-    assert {"202", "400", "401", "403"} <= set(operacao["responses"])
+    assert {"202", "400", "401", "403", "413"} <= set(operacao["responses"])
     assert "TIPO_DE_EVENTO_NAO_PERMITIDO" in operacao["description"]
     assert "entregador" in operacao["description"]
 

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 780" width="1100" height="780" role="img" aria-label="Mapa de integração da Equipe 5 (Financeiro)">
+<title>Mapa de integração da Equipe 5 (Financeiro)</title>
+<defs><marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/></marker></defs>
+<rect width="1100" height="780" fill="#ffffff"/>
+<text x="20" y="30" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#111827">Mapa de integração: Equipe 5 (Financeiro)</text>
+<rect x="270" y="130" width="590" height="620" rx="16" fill="#f8fafc" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="290" y="154" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#2563eb">EQUIPE 5 · FINANCEIRO E PÓS</text>
+<rect x="380" y="40" width="300" height="70" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="530.0" y="72.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Eq.1 · Identidade</text>
+<text x="530.0" y="91.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">JWT (JWKS) + Perfis</text>
+<rect x="20" y="200" width="190" height="90" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="115.0" y="242.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Eq.3 · Pedidos</text>
+<text x="115.0" y="261.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">checkout</text>
+<rect x="20" y="560" width="190" height="90" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="115.0" y="602.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Eq.4 · Logística</text>
+<text x="115.0" y="621.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">entregas</text>
+<rect x="890" y="200" width="190" height="90" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="985.0" y="242.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Cliente / Admin</text>
+<text x="985.0" y="261.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">avaliações e disputas</text>
+<rect x="890" y="560" width="190" height="60" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="985.0" y="587.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Mailpit</text>
+<text x="985.0" y="606.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">caixa de e-mail (demo)</text>
+<rect x="890" y="650" width="190" height="60" rx="10" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
+<text x="985.0" y="677.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Inscritos</text>
+<text x="985.0" y="696.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">webhooks assinados (HMAC)</text>
+<rect x="300" y="200" width="180" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="390.0" y="242.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Pagamentos</text>
+<text x="390.0" y="261.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">entidade · porta 8013</text>
+<rect x="650" y="200" width="180" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="740.0" y="242.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Avaliações</text>
+<text x="740.0" y="261.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">entidade + tarefa · 8015</text>
+<rect x="630" y="570" width="200" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="730.0" y="612.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">Notificações</text>
+<text x="730.0" y="631.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">utilitário · porta 8014</text>
+<rect x="300" y="400" width="530" height="60" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+<text x="565.0" y="427.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">RabbitMQ · exchange financeiro.eventos</text>
+<text x="565.0" y="446.0" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">topic · outbox + inbox + DLQ</text>
+<path d="M210,225 L300,225" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="197.8" y="206" width="114.4" height="16" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="255" y="216" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="10" fill="#111827">POST /v1/pagamentos</text>
+<path d="M300,268 L210,268" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="203.4" y="274" width="103.2" height="16" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="255" y="284" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="10" fill="#111827">GET /pedidos/{id}</text>
+<path d="M650,245 L480,245" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="514.8" y="225" width="100.4" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="565" y="236" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#111827">POST …/estornos</text>
+<path d="M700,200 L700,172 L165,172 L165,200" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="315.12" y="156" width="229.76000000000002" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="430" y="167" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#111827">GET /pedidos/{id} (pedido entregue?)</text>
+<path d="M890,245 L830,245" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<path d="M390,200 L430,110" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ag)"/>
+<path d="M770,200 L620,110" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ag)"/>
+<rect x="681.2" y="139" width="69.60000000000001" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="716" y="150" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">valida JWT</text>
+<path d="M830,580 L875,580 L875,75 L680,75" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ag)"/>
+<rect x="821.72" y="369" width="106.56" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="875" y="380" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">GET /perfis/{id}</text>
+<path d="M115,290 L115,330 L240,330 L240,598 L630,598" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="242.83999999999997" y="579" width="174.32000000000002" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="330" y="590" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#111827">POST /v1/eventos (pedido.*)</text>
+<path d="M210,628 L630,628" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="239.76" y="609" width="180.48000000000002" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="330" y="620" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#111827">POST /v1/eventos (entrega.*)</text>
+<path d="M390,290 L390,400" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="402.52" y="339" width="44.96" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="425" y="350" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#ea580c">outbox</text>
+<path d="M740,290 L740,400" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="752.52" y="339" width="44.96" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="775" y="350" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#ea580c">outbox</text>
+<path d="M680,570 L680,460" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="617.52" y="509" width="44.96" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="640" y="520" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#ea580c">outbox</text>
+<path d="M780,460 L780,570" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<rect x="794.44" y="509" width="51.120000000000005" height="17" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="820" y="520" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#ea580c">consome</text>
+<path d="M830,620 L890,595" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<text x="862" y="622" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="10" fill="#111827">e-mail</text>
+<path d="M830,645 L890,680" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<text x="868" y="652" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="10" fill="#111827">HTTP</text>
+<text x="20" y="700" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">Legenda</text>
+<path d="M20,718 L60,718" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<text x="70" y="722" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">chamada HTTP (síncrona)</text>
+<path d="M20,738 L60,738" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ao)"/>
+<text x="70" y="742" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">evento assíncrono (RabbitMQ)</text>
+<path d="M20,758 L60,758" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ag)"/>
+<text x="70" y="762" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#374151">validação do JWT / resposta</text>
+</svg>

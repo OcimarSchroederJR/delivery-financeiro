@@ -535,7 +535,7 @@
     },
     "/v1/eventos": {
       "post": {
-        "description": "Valida o envelope, deduplica por mensagem_id e o publica em financeiro.eventos (routing key = tipo).\n\nTipos por papel: `entregador` só `entrega.*`; `loja` só `pedido.*`; `admin` qualquer tipo não reservado. Fora disso: 403 TIPO_DE_EVENTO_NAO_PERMITIDO. Tipos da Equipe 5 (`pagamento.*`, `estorno.*`, `avaliacao.*`, `disputa.*`, `notificacao.*`, `tarefa.*`): 403 TIPO_DE_EVENTO_RESERVADO. Outros papéis: 403 ACESSO_NEGADO.\n\nCampos `*_id` de `dados`: texto de 1 a 128 caracteres, sem caracteres de controle (senão 400 ENVELOPE_INVALIDO).",
+        "description": "Valida o envelope, deduplica por mensagem_id e o publica em financeiro.eventos (routing key = tipo).\n\nTipos por papel: `entregador` só `entrega.*`; `loja` só `pedido.*`; `admin` qualquer tipo não reservado. Fora disso: 403 TIPO_DE_EVENTO_NAO_PERMITIDO. Tipos da Equipe 5 (`pagamento.*`, `estorno.*`, `avaliacao.*`, `disputa.*`, `notificacao.*`, `tarefa.*`): 403 TIPO_DE_EVENTO_RESERVADO. Outros papéis: 403 ACESSO_NEGADO.\n\nCampos `*_id` de `dados`: texto de 1 a 128 caracteres, sem caracteres de controle (senão 400 ENVELOPE_INVALIDO).\n\nCorpo acima de 64 KB: 413 ENVELOPE_GRANDE_DEMAIS.",
         "operationId": "receber_evento_v1_eventos_post",
         "requestBody": {
           "content": {
@@ -630,6 +630,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
           }
         },
         "security": [
@@ -741,6 +751,84 @@
           }
         ],
         "summary": "Lista notificações (não-admin só vê as próprias)",
+        "tags": [
+          "notificacoes"
+        ]
+      }
+    },
+    "/v1/notificacoes/{notificacao_id}": {
+      "get": {
+        "operationId": "consultar_notificacao_v1_notificacoes__notificacao_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notificacao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notificacao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificacaoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpoErro"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consulta uma notificação pelo identificador (não-admin só vê as próprias)",
         "tags": [
           "notificacoes"
         ]

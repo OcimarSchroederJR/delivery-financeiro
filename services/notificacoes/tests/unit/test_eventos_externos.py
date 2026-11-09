@@ -9,6 +9,7 @@ from notificacoes.aplicacao.eventos_externos import (
     validar_envelope,
 )
 from notificacoes.dominio.erros import (
+    EnvelopeGrandeDemais,
     EnvelopeInvalido,
     TipoDeEventoNaoPermitido,
     TipoDeEventoReservado,
@@ -90,9 +91,11 @@ def test_detalhes_nao_ecoam_a_entrada() -> None:
 
 def test_interpretar_corpo() -> None:
     assert interpretar_corpo(b'{"a": 1}') == {"a": 1}
-    for invalido in (b"{", b"\xff", b" " * (64 * 1024 + 1)):
+    for invalido in (b"{", b"\xff"):
         with pytest.raises(EnvelopeInvalido):
             interpretar_corpo(invalido)
+    with pytest.raises(EnvelopeGrandeDemais):
+        interpretar_corpo(b" " * (64 * 1024 + 1))
 
 
 @pytest.mark.parametrize(

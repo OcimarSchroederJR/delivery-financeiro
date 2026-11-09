@@ -24,6 +24,10 @@ class RepositorioNotificacoes(Protocol):
 
     async def atualizar(self, notificacao: Notificacao) -> None: ...
 
+    async def obter(self, notificacao_id: uuid.UUID) -> Notificacao | None:
+        """Leitura simples (sem trava)."""
+        ...
+
     async def listar(
         self, *, destinatario_id: str | None, deslocamento: int, limite: int
     ) -> tuple[list[Notificacao], int]: ...
