@@ -25,3 +25,6 @@ node_modules/
 .vscode/
 .DS_Store
 *.log
+
+# Cache do schemathesis (job e2e)
+.schemathesis/
