@@ -204,7 +204,9 @@ async def tratar_tarefa(
                     motivo=desfecho.motivo,
                 )
         except Exception:
-            # O efeito já foi gravado; só a republicação falhou (broker fora).
+            # O efeito já foi gravado; só a republicação falhou (broker fora). No
+            # DESISTIR a reentrega não é ignorada: os casos de uso respondem
+            # ``desistir`` de novo para notificação já falhada, e a DLQ é tentada outra vez.
             _log.exception(
                 "republicacao_de_tarefa_falhou",
                 fila=fila,

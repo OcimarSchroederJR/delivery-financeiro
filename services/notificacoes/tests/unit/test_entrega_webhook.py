@@ -191,3 +191,20 @@ async def test_entrega_concorrente_que_ja_concluiu_vira_ignorada() -> None:
     assert len(armazenamento.entregas) == 1  # a tentativa fica registrada
     notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
     assert (notificacao.status, notificacao.tentativas) == (StatusNotificacao.ENVIADA, 1)
+
+
+async def test_reentrega_de_notificacao_que_desistiu_pede_dlq_de_novo() -> None:
+    """Se a publicação na DLQ falhou depois do commit, a reentrega não pode perder a cópia."""
+    armazenamento, _, tarefa = _cenario()
+    notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
+    notificacao.falhar_definitivamente("HTTP 503")
+    entregador = EntregadorDeWebhookEmMemoria()
+    assert await _caso(armazenamento, entregador).executar(tarefa) == Desfecho.desistir("HTTP 503")
+    assert entregador.chamadas == []
+
+
+async def test_reentrega_de_notificacao_cancelada_continua_ignorada() -> None:
+    armazenamento, _, tarefa = _cenario(ativa=False)
+    caso = _caso(armazenamento, EntregadorDeWebhookEmMemoria())
+    await caso.executar(tarefa)
+    assert (await caso.executar(tarefa)).tipo is TipoDesfecho.IGNORADA

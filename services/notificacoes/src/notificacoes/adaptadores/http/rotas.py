@@ -25,8 +25,13 @@ from notificacoes.aplicacao.assinaturas import (
     listar_entregas,
     remover_assinatura,
 )
-from notificacoes.aplicacao.consultas import listar_notificacoes
-from notificacoes.aplicacao.eventos_externos import interpretar_corpo, receber_evento_externo
+from notificacoes.aplicacao.consultas import listar_notificacoes, obter_notificacao
+from notificacoes.aplicacao.eventos_externos import (
+    TAMANHO_MAXIMO_ENVELOPE,
+    interpretar_corpo,
+    receber_evento_externo,
+)
+from notificacoes.dominio.erros import EnvelopeGrandeDemais
 from plataforma.api.auth import UsuarioAtual
 from plataforma.api.erros import respostas_erro
 from plataforma.api.paginacao import Pagina, Paginacao
@@ -43,11 +48,25 @@ _CORPO_ENVELOPE = {
 }
 
 
+async def _ler_corpo_limitado(requisicao: Request) -> bytes:
+    """Recusa com 413 pelo ``Content-Length`` e, sem ele (ou se mentir), lê o stream
+    só até o limite, sem materializar um corpo enorme na memória."""
+    declarado = requisicao.headers.get("content-length", "")
+    if declarado.isdigit() and int(declarado) > TAMANHO_MAXIMO_ENVELOPE:
+        raise EnvelopeGrandeDemais()
+    corpo = bytearray()
+    async for pedaco in requisicao.stream():
+        corpo.extend(pedaco)
+        if len(corpo) > TAMANHO_MAXIMO_ENVELOPE:
+            raise EnvelopeGrandeDemais()
+    return bytes(corpo)
+
+
 @router.post(
     "/eventos",
     status_code=202,
     response_model=EventoAceito,
-    responses=respostas_erro(400, 401, 403),
+    responses=respostas_erro(400, 401, 403, 413),
     summary="Recebe um evento de outra equipe (ex.: pedido.*, entrega.*)",
     description="Valida o envelope, deduplica por mensagem_id e o publica em "
     "financeiro.eventos (routing key = tipo).\n\n"
@@ -57,7 +76,8 @@ _CORPO_ENVELOPE = {
     "`notificacao.*`, `tarefa.*`): 403 TIPO_DE_EVENTO_RESERVADO. Outros papéis: "
     "403 ACESSO_NEGADO.\n\n"
     "Campos `*_id` de `dados`: texto de 1 a 128 caracteres, sem caracteres de "
-    "controle (senão 400 ENVELOPE_INVALIDO).",
+    "controle (senão 400 ENVELOPE_INVALIDO).\n\n"
+    "Corpo acima de 64 KB: 413 ENVELOPE_GRANDE_DEMAIS.",
     openapi_extra=_CORPO_ENVELOPE,
     tags=["eventos"],
 )
@@ -65,7 +85,7 @@ async def receber_evento(
     requisicao: Request, produtor: ProdutorDeEventos, uow: Uow
 ) -> EventoAceito:
     recebido = await receber_evento_externo(
-        uow, interpretar_corpo(await requisicao.body()), papel=produtor.papel.value
+        uow, interpretar_corpo(await _ler_corpo_limitado(requisicao)), papel=produtor.papel.value
     )
     return EventoAceito(
         mensagem_id=recebido.mensagem_id, status="aceito" if recebido.novo else "duplicado"
@@ -168,4 +188,19 @@ async def listar_notificacoes_do_usuario(
     )
     return Pagina[NotificacaoSaida].criar(
         [NotificacaoSaida.de(item) for item in itens], paginacao, total
+    )
+
+
+@router.get(
+    "/notificacoes/{notificacao_id}",
+    response_model=NotificacaoSaida,
+    responses=respostas_erro(401, 403, 404, 422),
+    summary="Consulta uma notificação pelo identificador (não-admin só vê as próprias)",
+    tags=["notificacoes"],
+)
+async def consultar_notificacao(
+    notificacao_id: uuid.UUID, usuario: UsuarioAtual, uow: Uow
+) -> NotificacaoSaida:
+    return NotificacaoSaida.de(
+        await obter_notificacao(uow, solicitante_de(usuario), notificacao_id)
     )

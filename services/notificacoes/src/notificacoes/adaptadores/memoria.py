@@ -56,6 +56,9 @@ class RepositorioNotificacoesEmMemoria:
     async def atualizar(self, notificacao: Notificacao) -> None:
         self._dados.notificacoes[notificacao.id] = notificacao
 
+    async def obter(self, notificacao_id: uuid.UUID) -> Notificacao | None:
+        return self._dados.notificacoes.get(notificacao_id)
+
     async def listar(
         self, *, destinatario_id: str | None, deslocamento: int, limite: int
     ) -> tuple[list[Notificacao], int]:

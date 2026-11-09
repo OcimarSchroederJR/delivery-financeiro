@@ -56,6 +56,9 @@ class EnviarEmail:
     async def executar(self, tarefa: Tarefa) -> Desfecho:
         async with self._fabrica_uow() as uow:
             notificacao = await uow.notificacoes.obter_para_atualizar(tarefa.notificacao_id)
+            if notificacao is not None and notificacao.desistiu:
+                # Reentrega: a DLQ falhou depois do commit; a cópia ainda é devida.
+                return Desfecho.desistir(notificacao.ultimo_erro or "falha")
             if notificacao is None or not notificacao.pendente:
                 return Desfecho.ignorada("Notificação inexistente ou já finalizada.")
             desfecho = await self._tentar(notificacao, tarefa.evento)

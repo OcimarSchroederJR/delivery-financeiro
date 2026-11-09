@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from notificacoes.aplicacao.portas import UnidadeDeTrabalho
 from notificacoes.dominio.erros import (
+    EnvelopeGrandeDemais,
     EnvelopeInvalido,
     TipoDeEventoNaoPermitido,
     TipoDeEventoReservado,
@@ -49,7 +50,7 @@ class EventoRecebido:
 
 def interpretar_corpo(corpo: bytes) -> object:
     if len(corpo) > TAMANHO_MAXIMO_ENVELOPE:
-        raise EnvelopeInvalido("O envelope passa de 64 KB.")
+        raise EnvelopeGrandeDemais()
     try:
         dados: object = json.loads(corpo)
     except ValueError as erro:  # JSONDecodeError e UnicodeDecodeError

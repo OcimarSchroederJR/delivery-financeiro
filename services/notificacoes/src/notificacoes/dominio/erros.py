@@ -2,6 +2,7 @@
 
 from plataforma.erros import (
     ErroAcessoNegado,
+    ErroAplicacao,
     ErroNaoEncontrado,
     ErroRegraDeNegocio,
     ErroRequisicaoInvalida,
@@ -11,6 +12,17 @@ from plataforma.erros import (
 class EnvelopeInvalido(ErroRequisicaoInvalida):
     codigo_padrao = "ENVELOPE_INVALIDO"
     mensagem_padrao = "Envelope de evento inválido."
+
+
+class EnvelopeGrandeDemais(ErroAplicacao):
+    status_http = 413
+    codigo_padrao = "ENVELOPE_GRANDE_DEMAIS"
+    mensagem_padrao = "O envelope passa de 64 KB."
+
+
+class NotificacaoNaoEncontrada(ErroNaoEncontrado):
+    codigo_padrao = "NOTIFICACAO_NAO_ENCONTRADA"
+    mensagem_padrao = "Notificação não encontrada."
 
 
 class TipoDeEventoReservado(ErroAcessoNegado):

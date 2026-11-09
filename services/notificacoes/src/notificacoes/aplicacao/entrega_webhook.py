@@ -28,6 +28,7 @@ from notificacoes.aplicacao.portas import (
 from notificacoes.aplicacao.tarefas import Desfecho, Tarefa
 from notificacoes.dominio.assinatura_hmac import cabecalhos_da_entrega
 from notificacoes.dominio.entrega import EntregaWebhook
+from notificacoes.dominio.notificacao import MOTIVO_CANCELAMENTO
 from plataforma.envelope import EnvelopeEvento
 from plataforma.logs import obter_logger
 from plataforma.tempo import agora_utc
@@ -87,6 +88,9 @@ class EntregarWebhook:
         """Fase 1: valida com a linha travada e libera a trava antes do HTTP."""
         async with self._fabrica_uow() as uow:
             notificacao = await uow.notificacoes.obter_para_atualizar(tarefa.notificacao_id)
+            if notificacao is not None and notificacao.desistiu:
+                # Reentrega: a DLQ falhou depois do commit; a cópia ainda é devida.
+                return Desfecho.desistir(notificacao.ultimo_erro or "falha")
             if notificacao is None or not notificacao.pendente:
                 return Desfecho.ignorada("Notificação inexistente ou já finalizada.")
             assinatura = (
@@ -95,7 +99,7 @@ class EntregarWebhook:
                 else None
             )
             if assinatura is None or not assinatura.ativa:
-                notificacao.cancelar("Assinatura removida antes da entrega.")
+                notificacao.cancelar(MOTIVO_CANCELAMENTO)
                 await uow.notificacoes.atualizar(notificacao)
                 await uow.commit()
                 return Desfecho.ignorada("Assinatura removida.")
