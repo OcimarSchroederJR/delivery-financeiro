@@ -94,6 +94,22 @@ async def test_valor_acima_do_pago(abrir: AbrirDisputa, pagamentos: PagamentosFa
         await abrir.executar(_comando(valor=3201), CLIENTE_1)
 
 
+async def test_parcialmente_estornado_limita_pelo_saldo(
+    abrir: AbrirDisputa, pagamentos: PagamentosFake, banco: BancoEmMemoria
+) -> None:
+    pagamentos.adicionar(
+        "ped-4",
+        valor_centavos=5000,
+        saldo_estornavel_centavos=2000,
+        status="parcialmente_estornado",
+    )
+    with pytest.raises(ValorExcedePago) as erro:
+        await abrir.executar(_comando(valor=3000), CLIENTE_1)
+    assert erro.value.detalhes == {"saldo_estornavel_centavos": 2000}
+    assert banco.disputas == {}
+    assert (await abrir.executar(_comando(valor=2000), CLIENTE_1)).status is StatusDisputa.ABERTA
+
+
 async def test_uma_disputa_nao_terminal_por_pedido(
     abrir: AbrirDisputa, pagamentos: PagamentosFake, banco: BancoEmMemoria
 ) -> None:

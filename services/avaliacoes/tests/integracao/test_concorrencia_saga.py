@@ -89,7 +89,7 @@ def _disputa_aberta() -> Disputa:
         motivo=MotivoDisputa.ITEM_FALTANDO,
         descricao=None,
         valor_solicitado_centavos=1000,
-        valor_pago_centavos=3200,
+        saldo_estornavel_centavos=3200,
         agora=agora_utc() - timedelta(minutes=1),
     )
 

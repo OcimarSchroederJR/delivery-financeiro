@@ -32,6 +32,7 @@ def _pagamento(id_: str, status: str, pedido_id: str = "ped-4") -> dict[str, obj
         "valor_centavos": 3200,
         "metodo": "pix",
         "status": status,
+        "saldo_estornavel_centavos": 1200,
     }
 
 
@@ -53,7 +54,7 @@ async def test_lista_pagamentos_do_pedido_com_token_do_usuario(
     )
     resultado = await pagamentos.listar_por_pedido("ped-4", token="tok-cliente")
     assert [p.id for p in resultado] == ["pag-0", "pag-1"]
-    assert resultado[1] == PagamentoExterno("pag-1", "ped-4", "cliente-1", 3200, "aprovado")
+    assert resultado[1] == PagamentoExterno("pag-1", "ped-4", "cliente-1", 3200, "aprovado", 1200)
     requisicao = rota.calls.last.request
     assert dict(requisicao.url.params) == {"pedido_id": "ped-4", "pagina": "1", "tamanho": "100"}
     assert requisicao.headers["Authorization"] == "Bearer tok-cliente"

@@ -1,6 +1,7 @@
 """Implementações em memória das portas, para testes de unidade e de API."""
 
 import copy
+import dataclasses
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -255,6 +256,7 @@ class PagamentosFake:
         valor_centavos: int = 3200,
         status: str = "aprovado",
         pagamento_id: str | None = None,
+        saldo_estornavel_centavos: int | None = None,
     ) -> PagamentoExterno:
         pagamento = PagamentoExterno(
             id=pagamento_id or f"pag-{len(self.pagamentos) + 1}",
@@ -262,9 +264,21 @@ class PagamentosFake:
             cliente_id=cliente_id,
             valor_centavos=valor_centavos,
             status=status,
+            saldo_estornavel_centavos=(
+                valor_centavos if saldo_estornavel_centavos is None else saldo_estornavel_centavos
+            ),
         )
         self.pagamentos.append(pagamento)
         return pagamento
+
+    def definir_saldo(self, pagamento_id: str, saldo_estornavel_centavos: int) -> None:
+        """Simula um estorno feito fora da disputa."""
+        self.pagamentos = [
+            dataclasses.replace(p, saldo_estornavel_centavos=saldo_estornavel_centavos)
+            if p.id == pagamento_id
+            else p
+            for p in self.pagamentos
+        ]
 
     def programar_estorno(self, *resultados: ResultadoEstorno) -> None:
         """Próximas respostas de ``estornar``; depois delas, sempre sucesso."""

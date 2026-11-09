@@ -58,6 +58,12 @@ def _texto_opcional(valor: str | None, *, campo: str, maximo: int) -> str | None
     return texto or None
 
 
+def _exigir_saldo(valor: int, saldo_estornavel_centavos: int) -> None:
+    # O teto é o que ainda dá para estornar, não o valor original do pagamento.
+    if valor > saldo_estornavel_centavos:
+        raise ValorExcedePago(detalhes={"saldo_estornavel_centavos": saldo_estornavel_centavos})
+
+
 @dataclass(slots=True)
 class Disputa:
     id: uuid.UUID
@@ -87,7 +93,7 @@ class Disputa:
         motivo: MotivoDisputa,
         descricao: str | None,
         valor_solicitado_centavos: int,
-        valor_pago_centavos: int,
+        saldo_estornavel_centavos: int,
         agora: datetime,
     ) -> Self:
         if isinstance(valor_solicitado_centavos, bool) or valor_solicitado_centavos <= 0:
@@ -95,8 +101,7 @@ class Disputa:
                 "valor_solicitado_centavos deve ser positivo.",
                 detalhes={"campo": "valor_solicitado_centavos"},
             )
-        if valor_solicitado_centavos > valor_pago_centavos:
-            raise ValorExcedePago(detalhes={"valor_pago_centavos": valor_pago_centavos})
+        _exigir_saldo(valor_solicitado_centavos, saldo_estornavel_centavos)
         return cls(
             id=uuid.uuid4(),
             pedido_id=pedido_id,
@@ -156,6 +161,7 @@ class Disputa:
         parecer: str | None,
         agora: datetime,
         primeira_tentativa_em: datetime,
+        saldo_estornavel_centavos: int | None = None,
     ) -> None:
         """Procedente: vai para ``estorno_pendente``. Sem valor, usa o solicitado (regra 4)."""
         self._exigir(StatusDisputa.ABERTA)
@@ -169,6 +175,8 @@ class Disputa:
                 "valor_aprovado_centavos deve ser positivo e no máximo o valor solicitado.",
                 detalhes={"valor_solicitado_centavos": self.valor_solicitado_centavos},
             )
+        if saldo_estornavel_centavos is not None:
+            _exigir_saldo(valor, saldo_estornavel_centavos)
         self.parecer = _texto_opcional(parecer, campo="parecer", maximo=PARECER_MAXIMO)
         self.valor_aprovado_centavos = valor
         self.status = StatusDisputa.ESTORNO_PENDENTE

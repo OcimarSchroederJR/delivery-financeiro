@@ -34,6 +34,7 @@ PAGAMENTO = {
     "valor_centavos": 3200,
     "metodo": "pix",
     "status": "aprovado",
+    "saldo_estornavel_centavos": 3200,
 }
 
 
