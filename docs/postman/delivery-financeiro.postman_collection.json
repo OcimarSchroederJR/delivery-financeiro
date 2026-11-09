@@ -736,7 +736,7 @@
             "auth": {
               "type": "noauth"
             },
-            "description": "Repete por até 15 s até o e-mail chegar no Mailpit."
+            "description": "Repete por até 30 s até o e-mail chegar no Mailpit."
           },
           "event": [
             {
@@ -746,7 +746,7 @@
                 "exec": [
                   "const tentativa = Number(pm.collectionVariables.get('tentativa_email') || 0);",
                   "const chegou = pm.response.code === 200 && pm.response.json().messages_count > 0;",
-                  "if (!chegou && tentativa < 15) {",
+                  "if (!chegou && tentativa < 30) {",
                   "    // O worker ainda não mandou; tenta de novo em 1 s",
                   "    pm.collectionVariables.set('tentativa_email', tentativa + 1);",
                   "    setTimeout(() => {}, 1000);",
@@ -1111,7 +1111,7 @@
             "auth": {
               "type": "noauth"
             },
-            "description": "Repete por até 15 s até o e-mail chegar no Mailpit."
+            "description": "Repete por até 30 s até o e-mail chegar no Mailpit."
           },
           "event": [
             {
@@ -1121,7 +1121,7 @@
                 "exec": [
                   "const tentativa = Number(pm.collectionVariables.get('tentativa_email') || 0);",
                   "const chegou = pm.response.code === 200 && pm.response.json().messages_count > 0;",
-                  "if (!chegou && tentativa < 15) {",
+                  "if (!chegou && tentativa < 30) {",
                   "    // O worker ainda não mandou; tenta de novo em 1 s",
                   "    pm.collectionVariables.set('tentativa_email', tentativa + 1);",
                   "    setTimeout(() => {}, 1000);",
