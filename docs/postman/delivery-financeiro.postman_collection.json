@@ -1,0 +1,1348 @@
+{
+  "info": {
+    "name": "Delivery Financeiro - Equipe 5",
+    "description": "Fluxo completo da demo: login, pedido, pagamento, e-mail, entrega, avaliação, disputa com estorno e resiliência.\n\nSuba a stack com `docker compose --profile mocks up -d --build` e rode com o ambiente `local`. Tudo manda o mesmo `X-Correlation-ID` para o fluxo aparecer amarrado nos logs e no Jaeger.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token_cliente}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Mesmo correlation_id em todas as requests da execução",
+          "const correlationId = pm.collectionVariables.get('correlation_id');",
+          "if (correlationId) {",
+          "    pm.request.headers.upsert({ key: 'X-Correlation-ID', value: correlationId });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "restaurante_id",
+      "value": "rest-1"
+    },
+    {
+      "key": "execucao",
+      "value": ""
+    },
+    {
+      "key": "correlation_id",
+      "value": ""
+    },
+    {
+      "key": "token_cliente",
+      "value": ""
+    },
+    {
+      "key": "token_admin",
+      "value": ""
+    },
+    {
+      "key": "token_entregador",
+      "value": ""
+    },
+    {
+      "key": "token_loja",
+      "value": ""
+    },
+    {
+      "key": "pedido_cartao",
+      "value": ""
+    },
+    {
+      "key": "pedido_recusado",
+      "value": ""
+    },
+    {
+      "key": "pedido_caro",
+      "value": ""
+    },
+    {
+      "key": "pedido_pix",
+      "value": ""
+    },
+    {
+      "key": "pedido_resiliencia",
+      "value": ""
+    },
+    {
+      "key": "pagamento_id",
+      "value": ""
+    },
+    {
+      "key": "assinatura_id",
+      "value": ""
+    },
+    {
+      "key": "disputa_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticação",
+      "description": "Tokens do mock da Eq. 1, um por papel. Ficam em variáveis da coleção.",
+      "item": [
+        {
+          "name": "Token do cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{identidade}}/tokens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub\": \"cliente-1\",\n  \"papel\": \"cliente\",\n  \"email\": \"cliente-1@exemplo.com\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Cada execução usa pedidos novos e um correlation_id próprio",
+                  "const execucao = Date.now().toString(36);",
+                  "pm.collectionVariables.set('execucao', execucao);",
+                  "pm.collectionVariables.set('correlation_id', 'demo-' + execucao);",
+                  "['cartao', 'recusado', 'caro', 'pix', 'resiliencia'].forEach((tipo) =>",
+                  "    pm.collectionVariables.set('pedido_' + tipo, `ped-${execucao}-${tipo}`));",
+                  "pm.request.headers.upsert({",
+                  "    key: 'X-Correlation-ID', value: pm.collectionVariables.get('correlation_id') });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('token_cliente', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token do admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{identidade}}/tokens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub\": \"admin-1\",\n  \"papel\": \"admin\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token do entregador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{identidade}}/tokens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub\": \"entregador-1\",\n  \"papel\": \"entregador\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('token_entregador', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token da loja",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{identidade}}/tokens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub\": \"loja-1\",\n  \"papel\": \"loja\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('token_loja', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Pedidos",
+      "description": "Semeia no mock da Eq. 3 os pedidos usados no resto da demo.",
+      "item": [
+        {
+          "name": "Pedido para cartão",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/pedidos/{{pedido_cartao}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-1\",\n  \"restaurante_id\": \"{{restaurante_id}}\",\n  \"valor_total_centavos\": 4590,\n  \"status\": \"confirmado\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pedido semeado', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pedido para cartão recusado",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/pedidos/{{pedido_recusado}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-1\",\n  \"restaurante_id\": \"{{restaurante_id}}\",\n  \"valor_total_centavos\": 4590,\n  \"status\": \"confirmado\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pedido semeado', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pedido acima de R$ 5.000",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/pedidos/{{pedido_caro}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-1\",\n  \"restaurante_id\": \"{{restaurante_id}}\",\n  \"valor_total_centavos\": 600000,\n  \"status\": \"confirmado\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pedido semeado', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pedido para Pix",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/pedidos/{{pedido_pix}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-1\",\n  \"restaurante_id\": \"{{restaurante_id}}\",\n  \"valor_total_centavos\": 3200,\n  \"status\": \"confirmado\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pedido semeado', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pedido para resiliência",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/pedidos/{{pedido_resiliencia}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-1\",\n  \"restaurante_id\": \"{{restaurante_id}}\",\n  \"valor_total_centavos\": 1500,\n  \"status\": \"confirmado\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pedido semeado', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Pagamentos",
+      "description": "Aprovado, repetição idempotente, recusado, antifraude e Pix.",
+      "item": [
+        {
+          "name": "Cartão aprovado (final 0000)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "pag-{{pedido_cartao}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_cartao}}\",\n  \"metodo\": \"cartao_credito\",\n  \"cartao\": {\n    \"numero\": \"4111111111110000\",\n    \"titular\": \"Fulano de Tal\",\n    \"validade\": \"12/30\",\n    \"cvv\": \"123\"\n  }\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const pagamento = pm.response.json();",
+                  "pm.test('pagamento aprovado', () => {",
+                  "    pm.expect(pagamento.status).to.eql('aprovado');",
+                  "    pm.expect(pagamento.valor_centavos).to.eql(4590);",
+                  "    pm.expect(pagamento.cartao_final).to.eql('0000');",
+                  "});",
+                  "pm.collectionVariables.set('pagamento_id', pagamento.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repetição com a mesma Idempotency-Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "pag-{{pedido_cartao}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_cartao}}\",\n  \"metodo\": \"cartao_credito\",\n  \"cartao\": {\n    \"numero\": \"4111111111110000\",\n    \"titular\": \"Fulano de Tal\",\n    \"validade\": \"12/30\",\n    \"cvv\": \"123\"\n  }\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('devolve o mesmo pagamento', () => {",
+                  "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('pagamento_id'));",
+                  "    pm.expect(pm.response.headers.get('Idempotency-Replayed')).to.eql('true');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cartão recusado (final 0002)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "pag-{{pedido_recusado}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_recusado}}\",\n  \"metodo\": \"cartao_credito\",\n  \"cartao\": {\n    \"numero\": \"4111111111110002\",\n    \"titular\": \"Fulano de Tal\",\n    \"validade\": \"12/30\",\n    \"cvv\": \"123\"\n  }\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('erro no formato padrão', () => {",
+                  "    const corpo = pm.response.json();",
+                  "    pm.expect(corpo.erro).to.eql(true);",
+                  "    pm.expect(corpo.mensagem).to.be.a('string');",
+                  "    pm.expect(corpo.codigo).to.eql('PAGAMENTO_RECUSADO');",
+                  "});",
+                  "pm.test('motivo saldo_insuficiente', () =>",
+                  "    pm.expect(pm.response.json().motivo).to.eql('saldo_insuficiente'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Acima de R$ 5.000 cai na antifraude",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "pag-{{pedido_caro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_caro}}\",\n  \"metodo\": \"pix\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('erro no formato padrão', () => {",
+                  "    const corpo = pm.response.json();",
+                  "    pm.expect(corpo.erro).to.eql(true);",
+                  "    pm.expect(corpo.mensagem).to.be.a('string');",
+                  "    pm.expect(corpo.codigo).to.eql('PAGAMENTO_RECUSADO');",
+                  "});",
+                  "pm.test('motivo analise_antifraude', () =>",
+                  "    pm.expect(pm.response.json().motivo).to.eql('analise_antifraude'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pix aprovado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "pag-{{pedido_pix}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_pix}}\",\n  \"metodo\": \"pix\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('pix aprovado', () => {",
+                  "    pm.expect(pm.response.json().status).to.eql('aprovado');",
+                  "    pm.expect(pm.response.json().metodo).to.eql('pix');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhar o pagamento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{pagamentos}}/v1/pagamentos/{{pagamento_id}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('saldo estornável inteiro', () =>",
+                  "    pm.expect(pm.response.json().saldo_estornavel_centavos).to.eql(4590));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Notificações",
+      "description": "Webhook do cliente e o e-mail de pagamento aprovado (enviado pelo worker).",
+      "item": [
+        {
+          "name": "Inscrever webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificacoes}}/v1/webhooks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"{{webhook_url}}\",\n  \"eventos\": [\n    \"pagamento.*\",\n    \"disputa.*\"\n  ]\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const assinatura = pm.response.json();",
+                  "pm.test('segredo só aparece na criação', () =>",
+                  "    pm.expect(assinatura.segredo).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('assinatura_id', assinatura.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E-mail de pagamento aprovado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{mailpit}}/api/v1/search?query=subject:\"Pagamento aprovado - pedido {{pedido_cartao}}\"",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Repete por até 15 s até o e-mail chegar no Mailpit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tentativa = Number(pm.collectionVariables.get('tentativa_email') || 0);",
+                  "const chegou = pm.response.code === 200 && pm.response.json().messages_count > 0;",
+                  "if (!chegou && tentativa < 15) {",
+                  "    // O worker ainda não mandou; tenta de novo em 1 s",
+                  "    pm.collectionVariables.set('tentativa_email', tentativa + 1);",
+                  "    setTimeout(() => {}, 1000);",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.unset('tentativa_email');",
+                  "    pm.test('e-mail chegou no Mailpit', () => pm.expect(chegou).to.eql(true));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notificações do cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificacoes}}/v1/notificacoes",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista paginada', () => pm.expect(pm.response.json().itens).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Entrega",
+      "description": "A Eq. 4 avisa a entrega e a Eq. 3 marca o pedido como entregue.",
+      "item": [
+        {
+          "name": "Logística conclui a entrega",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{logistica}}/entregas/{{pedido_cartao}}/concluir",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-1\",\n  \"entregador_id\": \"entregador-1\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('Notificações aceitou o evento', () =>",
+                  "    pm.expect(pm.response.json().status_notificacoes).to.eql(202));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pedido marcado como entregue",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/pedidos/{{pedido_cartao}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"entregue\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Avaliações",
+      "description": "Uma avaliação por pedido entregue e o resumo do restaurante.",
+      "item": [
+        {
+          "name": "Avaliar o pedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{avaliacoes}}/v1/avaliacoes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_cartao}}\",\n  \"nota_restaurante\": 5,\n  \"nota_entrega\": 4,\n  \"comentario\": \"Chegou quentinho!\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('avaliação registrada', () =>",
+                  "    pm.expect(pm.response.json().nota_restaurante).to.eql(5));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Avaliar de novo dá 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{avaliacoes}}/v1/avaliacoes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_cartao}}\",\n  \"nota_restaurante\": 1\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('erro no formato padrão', () => {",
+                  "    const corpo = pm.response.json();",
+                  "    pm.expect(corpo.erro).to.eql(true);",
+                  "    pm.expect(corpo.mensagem).to.be.a('string');",
+                  "    pm.expect(corpo.codigo).to.eql('AVALIACAO_DUPLICADA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resumo do restaurante",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{avaliacoes}}/v1/resumos-avaliacoes/{{restaurante_id}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('tem ao menos uma avaliação', () =>",
+                  "    pm.expect(pm.response.json().total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Disputa",
+      "description": "O cliente contesta, o admin aprova e a saga estorna em Pagamentos.",
+      "item": [
+        {
+          "name": "Abrir disputa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{avaliacoes}}/v1/disputas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_cartao}}\",\n  \"motivo\": \"item_faltando\",\n  \"descricao\": \"Faltou o refrigerante.\",\n  \"valor_solicitado_centavos\": 1000\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('disputa aberta', () => pm.expect(pm.response.json().status).to.eql('aberta'));",
+                  "pm.collectionVariables.set('disputa_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin julga procedente",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{avaliacoes}}/v1/disputas/{{disputa_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"procedente\",\n  \"parecer\": \"Item confirmado pela loja.\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('estorno feito e disputa resolvida', () => {",
+                  "    pm.expect(pm.response.json().status).to.eql('resolvida');",
+                  "    pm.expect(pm.response.json().estorno_id).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Estorno aparece em Pagamentos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{pagamentos}}/v1/pagamentos/{{pagamento_id}}/estornos",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('estorno de R$ 10,00', () => {",
+                  "    const itens = pm.response.json().itens;",
+                  "    pm.expect(itens.map((e) => e.valor_centavos)).to.include(1000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E-mail de disputa resolvida",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{mailpit}}/api/v1/search?query=subject:\"Disputa procedente - pedido {{pedido_cartao}}\"",
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Repete por até 15 s até o e-mail chegar no Mailpit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tentativa = Number(pm.collectionVariables.get('tentativa_email') || 0);",
+                  "const chegou = pm.response.code === 200 && pm.response.json().messages_count > 0;",
+                  "if (!chegou && tentativa < 15) {",
+                  "    // O worker ainda não mandou; tenta de novo em 1 s",
+                  "    pm.collectionVariables.set('tentativa_email', tentativa + 1);",
+                  "    setTimeout(() => {}, 1000);",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.unset('tentativa_email');",
+                  "    pm.test('e-mail chegou no Mailpit', () => pm.expect(chegou).to.eql(true));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Entregas do webhook",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificacoes}}/v1/webhooks/{{assinatura_id}}/entregas",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('tentativas registradas', () =>",
+                  "    pm.expect(pm.response.json().itens).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Resiliência",
+      "description": "Eq. 3 fora do ar vira 503 amigável; erros sempre no formato padrão.",
+      "item": [
+        {
+          "name": "Derrubar o mock de pedidos",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/_controle/falha",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modo\": \"erro\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Mesmo efeito de `docker compose stop mock-pedidos`, sem sair do Postman."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pagamento com a Eq. 3 fora dá 503",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "pag-{{pedido_resiliencia}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedido_id\": \"{{pedido_resiliencia}}\",\n  \"metodo\": \"pix\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 503', () => pm.response.to.have.status(503));",
+                  "pm.test('erro no formato padrão', () => {",
+                  "    const corpo = pm.response.json();",
+                  "    pm.expect(corpo.erro).to.eql(true);",
+                  "    pm.expect(corpo.mensagem).to.be.a('string');",
+                  "    pm.expect(corpo.codigo).to.eql('DEPENDENCIA_INDISPONIVEL');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Religar o mock de pedidos",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pedidos}}/_controle/falha",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modo\": \"normal\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sem token dá 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{pagamentos}}/v1/pagamentos",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('erro no formato padrão', () =>",
+                  "    pm.expect(pm.response.json()).to.include.keys('erro', 'mensagem', 'codigo'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pagamento inexistente dá 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{pagamentos}}/v1/pagamentos/00000000-0000-0000-0000-000000000000",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_cliente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('erro no formato padrão', () => {",
+                  "    const corpo = pm.response.json();",
+                  "    pm.expect(corpo.erro).to.eql(true);",
+                  "    pm.expect(corpo.mensagem).to.be.a('string');",
+                  "    pm.expect(corpo.codigo).to.eql('PAGAMENTO_NAO_ENCONTRADO');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
