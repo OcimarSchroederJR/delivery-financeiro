@@ -54,19 +54,25 @@ def interpretar_corpo(corpo: bytes) -> object:
         dados: object = json.loads(corpo)
     except ValueError as erro:  # JSONDecodeError e UnicodeDecodeError
         raise EnvelopeInvalido("O corpo não é um JSON válido.") from erro
-    if _tem_caractere_nulo(dados):
-        raise EnvelopeInvalido("O envelope não pode ter o caractere nulo (\\u0000).")
+    if _tem_texto_invalido(dados):
+        raise EnvelopeInvalido(
+            "O envelope não pode ter o caractere nulo (\\u0000) nem surrogate solto."
+        )
     return dados
 
 
-def _tem_caractere_nulo(valor: object) -> bool:
-    # O Postgres não guarda \u0000 em JSONB nem em texto
+def _texto_invalido(texto: str) -> bool:
+    # O Postgres não guarda \u0000 nem surrogate solto (\ud800 a \udfff) em JSONB
+    return any(ord(c) == 0 or 0xD800 <= ord(c) <= 0xDFFF for c in texto)
+
+
+def _tem_texto_invalido(valor: object) -> bool:
     if isinstance(valor, str):
-        return "\x00" in valor
+        return _texto_invalido(valor)
     if isinstance(valor, dict):
-        return any(_tem_caractere_nulo(k) or _tem_caractere_nulo(v) for k, v in valor.items())
+        return any(_texto_invalido(k) or _tem_texto_invalido(v) for k, v in valor.items())
     if isinstance(valor, list):
-        return any(_tem_caractere_nulo(item) for item in valor)
+        return any(_tem_texto_invalido(item) for item in valor)
     return False
 
 
