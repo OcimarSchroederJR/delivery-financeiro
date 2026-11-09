@@ -4,8 +4,14 @@ Serviços de **Pagamentos**, **Notificações** e **Avaliações** da Plataforma
 (Integração de Sistemas — UPE Garanhuns). A especificação completa está em
 [`docs/arquitetura/especificacao.md`](docs/arquitetura/especificacao.md).
 
-> **Estado:** Fase 1 (Fundação) concluída — biblioteca `libs/plataforma`, mocks das outras
-> equipes, esqueleto dos 3 serviços, compose e CI. As regras de negócio chegam nas Fases 2 a 4.
+> **Estado:** Fases 1 a 5 da [especificação](docs/arquitetura/especificacao.md) (§11) concluídas.
+> Os três serviços estão completos, com testes e contratos: Pagamentos (aprovação, recusa, antifraude,
+> Pix, estornos), Notificações (e-mail, webhooks, `POST /v1/eventos`) e Avaliações (avaliações,
+> disputas e saga de estorno). Também existem a `libs/plataforma`, os mocks das Equipes 1, 3 e 4,
+> o CI (lint, tipos, testes, cobertura mínima de 75%, contratos, e2e com Newman e schemathesis),
+> a coleção Postman, os ADRs, os diagramas e o guia de integração.
+> A infraestrutura de produção (VM, Caddy, CD) está pronta, mas o deploy ainda não foi feito (Fase 6).
+> Os manifests k8s (Fase 7, bônus) não existem.
 
 ## Equipe
 
@@ -13,16 +19,25 @@ Luiz Tenório · João Gabriel · Alana Brito · Ocimar Schroeder
 
 ## Serviços
 
-| Serviço | Camada | Porta | Swagger |
-|---|---|---|---|
-| Pagamentos | Entidade | 8013 | http://localhost:8013/docs |
-| Notificações | Utilitário | 8014 | http://localhost:8014/docs |
-| Avaliações | Entidade + Tarefa | 8015 | http://localhost:8015/docs |
+| Serviço | Camada | O que faz | Quem consome | Porta | Swagger | AsyncAPI |
+|---|---|---|---|---|---|---|
+| Pagamentos | Entidade | autoriza pagamentos de pedidos (cartão e Pix), antifraude e estornos; publica `pagamento.aprovado`, `pagamento.recusado` e `pagamento.estornado` | Eq. 3 (checkout) e Avaliações (estorno da disputa) | 8013 | http://localhost:8013/docs | [`pagamentos.json`](docs/asyncapi/pagamentos.json) |
+| Notificações | Utilitário | consome os eventos e envia e-mail e webhooks, com retry e DLQ; recebe eventos externos em `POST /v1/eventos` | qualquer equipe (webhooks e `/v1/eventos`); Eq. 4 (entrega concluída) | 8014 | http://localhost:8014/docs | [`notificacoes.json`](docs/asyncapi/notificacoes.json) |
+| Avaliações | Entidade + Tarefa | avaliação por pedido entregue, resumo do restaurante, disputas e saga de estorno; publica `avaliacao.registrada` e `disputa.*` | clientes e admin | 8015 | http://localhost:8015/docs | [`avaliacoes.json`](docs/asyncapi/avaliacoes.json) |
 
-Contratos gerados: [`docs/openapi/`](docs/openapi/) e [`docs/asyncapi/`](docs/asyncapi/).
-Diagramas de arquitetura (C4, sequências e estados, em Mermaid): [`docs/diagramas/`](docs/diagramas/README.md).
-Para as outras equipes, o [guia de integração](docs/guia-de-integracao.md) explica como chamar
-cada serviço, como publicar eventos e como validar os webhooks.
+Cada serviço sobe 4 containers: a API (`pagamentos`, `notificacoes`, `avaliacoes`), o worker
+(`pagamentos-worker`, `notificacoes-worker`, `avaliacoes-worker`), o banco PostgreSQL próprio
+(`db-<serviço>`) e a migração (`migrate-<serviço>`, roda e termina). O AsyncAPI é um arquivo,
+não uma página servida; o OpenAPI de cada serviço está em [`docs/openapi/`](docs/openapi/).
+
+Documentação:
+
+- [Especificação](docs/arquitetura/especificacao.md) e [levantamento de requisitos](docs/levantamento-requisitos.md)
+- [ADRs](docs/adr/README.md): as 10 decisões de arquitetura e seus trade-offs
+- [Diagramas](docs/diagramas/README.md): mapa de integração, fluxos, C4, sequências e estados
+- [Guia de integração](docs/guia-de-integracao.md): para as outras equipes chamarem os serviços, publicarem eventos e validarem webhooks
+- [Coleção Postman](docs/postman/delivery-financeiro.postman_collection.json) e [roteiro da demonstração](docs/roteiro-demo.md)
+- Contratos: [`docs/openapi/`](docs/openapi/) e [`docs/asyncapi/`](docs/asyncapi/)
 
 ## Como rodar
 
@@ -33,6 +48,11 @@ cp .env.example .env                              # opcional
 docker compose --profile mocks up -d --build      # serviços + infraestrutura + mocks
 docker compose --profile mocks down -v            # derruba tudo
 ```
+
+O profile `mocks` sobe os stubs das Equipes 1 (identidade), 3 (pedidos) e 4 (logística), então o
+fluxo completo roda sem depender das outras equipes. Sem o profile, sobem só os serviços e a
+infraestrutura. Acompanhe os logs com `docker compose logs -f pagamentos notificacoes-worker avaliacoes`
+e confira `docker compose ps` até os serviços ficarem `healthy`.
 
 | Ferramenta | URL |
 |---|---|
@@ -46,9 +66,12 @@ docker compose --profile mocks down -v            # derruba tudo
 Token de teste: `curl -X POST localhost:8001/tokens -H 'Content-Type: application/json' -d '{"sub":"cliente-1","papel":"cliente"}'`.
 
 A coleção Postman com o fluxo completo da demo fica em [`docs/postman/`](docs/postman/). Para rodar
-no terminal: `npx newman run docs/postman/delivery-financeiro.postman_collection.json -e docs/postman/local.postman_environment.json`.
+no terminal (o passo a passo para apresentar está no [roteiro da demonstração](docs/roteiro-demo.md)): `npx newman run docs/postman/delivery-financeiro.postman_collection.json -e docs/postman/local.postman_environment.json`.
 
 ### Produção
+
+> **URLs de produção: a preencher depois do deploy.** O deploy ainda não foi feito; quando a VM
+> existir, troque `<ip>` abaixo pelo IP real e registre aqui o endereço final.
 
 A produção roda numa VM do Azure for Students, com `infra/compose.prod.yaml` e o Caddy na frente
 (HTTPS automático). Domínio: `financeiro-eq5.<ip>.sslip.io` (o IP sai do `infra/azure/criar-vm.sh`).
@@ -73,9 +96,9 @@ Pré-requisitos: [uv](https://docs.astral.sh/uv/) 0.11 e Docker (para os testes 
 uv python install 3.12
 uv sync
 uv run pre-commit install
-uv run pytest                                 # todos os testes
+uv run pytest                                 # todos os testes (integração usa Docker)
 uv run pytest -m "not integracao"             # sem Docker
-uv run pytest services/pagamentos/tests --cov=pagamentos
+uv run pytest services/pagamentos/tests --cov=pagamentos   # um serviço, com cobertura
 uv run python -m pagamentos.contratos         # regenera docs/openapi e docs/asyncapi
 ```
 
