@@ -51,3 +51,57 @@ async def test_paginacao_invalida_422(api: httpx.AsyncClient, bearer: Bearer) ->
 
 async def test_sem_token_401(api: httpx.AsyncClient) -> None:
     assert (await api.get("/v1/notificacoes")).status_code == 401
+
+
+async def test_consulta_por_id_do_dono_e_do_admin(
+    api: httpx.AsyncClient, bearer: Bearer, armazenamento: ArmazenamentoEmMemoria
+) -> None:
+    _semear(armazenamento)
+    notificacao = next(
+        n for n in armazenamento.notificacoes.values() if n.destinatario_id == "cliente-2"
+    )
+    url = f"/v1/notificacoes/{notificacao.id}"
+    do_dono = await api.get(url, headers=bearer("cliente-2", "cliente"))
+    assert do_dono.status_code == 200
+    corpo = do_dono.json()
+    assert (corpo["id"], corpo["status"], corpo["destinatario_id"]) == (
+        str(notificacao.id),
+        "pendente",
+        "cliente-2",
+    )
+    assert (await api.get(url, headers=bearer("admin-1", "admin"))).status_code == 200
+
+
+async def test_consulta_por_id_de_outro_cliente_403(
+    api: httpx.AsyncClient, bearer: Bearer, armazenamento: ArmazenamentoEmMemoria
+) -> None:
+    _semear(armazenamento)
+    notificacao = next(
+        n for n in armazenamento.notificacoes.values() if n.destinatario_id == "cliente-2"
+    )
+    resposta = await api.get(
+        f"/v1/notificacoes/{notificacao.id}", headers=bearer("cliente-1", "cliente")
+    )
+    assert resposta.status_code == 403
+    assert resposta.json()["codigo"] == "ACESSO_NEGADO"
+
+
+async def test_consulta_por_id_inexistente_404_no_formato_padrao(
+    api: httpx.AsyncClient, bearer: Bearer
+) -> None:
+    resposta = await api.get(
+        f"/v1/notificacoes/{uuid.uuid4()}", headers=bearer("cliente-1", "cliente")
+    )
+    erro = resposta.json()
+    assert resposta.status_code == 404
+    assert (erro["erro"], erro["codigo"]) == (True, "NOTIFICACAO_NAO_ENCONTRADA")
+    assert erro["mensagem"]
+    assert erro["correlation_id"]
+
+
+async def test_consulta_por_id_invalido_422_e_sem_token_401(
+    api: httpx.AsyncClient, bearer: Bearer
+) -> None:
+    invalido = await api.get("/v1/notificacoes/abc", headers=bearer("cliente-1", "cliente"))
+    assert invalido.status_code == 422
+    assert (await api.get(f"/v1/notificacoes/{uuid.uuid4()}")).status_code == 401

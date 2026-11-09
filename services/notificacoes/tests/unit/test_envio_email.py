@@ -113,7 +113,8 @@ async def test_esgota_retentativas_e_desiste() -> None:
     assert tipos == [TipoDesfecho.REPETIR] * 5 + [TipoDesfecho.DESISTIR]
     notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
     assert (notificacao.status, notificacao.tentativas) == (StatusNotificacao.FALHOU, 6)
-    assert (await caso.executar(tarefa)).tipo is TipoDesfecho.IGNORADA
+    # reentrega depois de a DLQ falhar: pede a DLQ de novo, não ignora
+    assert (await caso.executar(tarefa)).tipo is TipoDesfecho.DESISTIR
 
 
 async def test_perfil_inexistente_e_falha_definitiva() -> None:
@@ -203,3 +204,12 @@ async def test_valueerror_do_enviador_e_falha_definitiva() -> None:
     assert desfecho.motivo.startswith("ValueError")
     notificacao = armazenamento.notificacoes[tarefa.notificacao_id]
     assert notificacao.status is StatusNotificacao.FALHOU
+
+
+async def test_reentrega_de_notificacao_que_desistiu_pede_dlq_de_novo() -> None:
+    armazenamento, tarefa = _cenario()
+    armazenamento.notificacoes[tarefa.notificacao_id].falhar_definitivamente("Perfil inválido")
+    enviador = EnviadorDeEmailEmMemoria()
+    caso = _caso(armazenamento, PerfisEmMemoria({"cliente-1": PERFIL}), enviador)
+    assert await caso.executar(tarefa) == Desfecho.desistir("Perfil inválido")
+    assert enviador.enviados == []

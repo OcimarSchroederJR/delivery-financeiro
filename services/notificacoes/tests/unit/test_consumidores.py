@@ -248,3 +248,10 @@ def test_consumidores_tem_prefetch_limitado_e_canal_proprio() -> None:
         "notificacoes.emails": 10,
         "notificacoes.webhooks": 10,
     }
+
+
+async def test_falha_na_dlq_depois_de_desistir_faz_nack_sem_ack() -> None:
+    assert await _tratar(Desfecho.desistir("HTTP 503"), falhar_encaminhador=True) == [
+        "processada:tarefa.webhook",
+        "nack(requeue=True)",
+    ]

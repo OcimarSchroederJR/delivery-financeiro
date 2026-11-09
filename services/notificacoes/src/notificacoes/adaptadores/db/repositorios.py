@@ -74,6 +74,10 @@ class RepositorioNotificacoesSql:
         )
         return None if linha is None else _notificacao(linha)
 
+    async def obter(self, notificacao_id: uuid.UUID) -> Notificacao | None:
+        linha = await self._sessao.get(NotificacaoLinha, notificacao_id)
+        return None if linha is None else _notificacao(linha)
+
     async def atualizar(self, notificacao: Notificacao) -> None:
         await self._sessao.execute(
             update(NotificacaoLinha)
