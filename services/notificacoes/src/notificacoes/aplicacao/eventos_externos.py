@@ -51,9 +51,23 @@ def interpretar_corpo(corpo: bytes) -> object:
     if len(corpo) > TAMANHO_MAXIMO_ENVELOPE:
         raise EnvelopeInvalido("O envelope passa de 64 KB.")
     try:
-        return json.loads(corpo)
+        dados: object = json.loads(corpo)
     except ValueError as erro:  # JSONDecodeError e UnicodeDecodeError
         raise EnvelopeInvalido("O corpo não é um JSON válido.") from erro
+    if _tem_caractere_nulo(dados):
+        raise EnvelopeInvalido("O envelope não pode ter o caractere nulo (\\u0000).")
+    return dados
+
+
+def _tem_caractere_nulo(valor: object) -> bool:
+    # O Postgres não guarda \u0000 em JSONB nem em texto
+    if isinstance(valor, str):
+        return "\x00" in valor
+    if isinstance(valor, dict):
+        return any(_tem_caractere_nulo(k) or _tem_caractere_nulo(v) for k, v in valor.items())
+    if isinstance(valor, list):
+        return any(_tem_caractere_nulo(item) for item in valor)
+    return False
 
 
 def _problema_do_id(valor: Any) -> str | None:
